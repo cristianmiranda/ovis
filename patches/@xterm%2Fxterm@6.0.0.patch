@@ -813,10 +813,21 @@ index 90e27a5d9905ae036a0ac0a18e298adf782c923b..13a26d01f96d5b2eb1578ad9f3ed0d54
    public registerEscHandler(id: IFunctionIdentifier, callback: () => boolean | Promise<boolean>): IDisposable {
      return this._inputHandler.registerEscHandler(id, callback);
 diff --git a/src/common/InputHandler.ts b/src/common/InputHandler.ts
-index ba53941a7a27a2f65e668c2c5d0b4e3a213e09b8..a24375149d8afe5fef406e3f440fa7a9e2eaf738 100644
+index ba53941a7a27a2f65e668c2c5d0b4e3a213e09b8..2a80e5cab90f0b2533d758213f1e3e9f7ab30f90 100644
 --- a/src/common/InputHandler.ts
 +++ b/src/common/InputHandler.ts
-@@ -688,6 +688,11 @@ export class InputHandler extends Disposable implements IInputHandler {
+@@ -612,6 +612,10 @@ export class InputHandler extends Disposable implements IInputHandler {
+         for (let delta = chWidth - oldWidth; --delta >= 0;) {
+           bufferRow.setCellFromCodepoint(this._activeBuffer.x++, 0, 0, curAttr);
+         }
++        // a selector that narrows the cell (U+FE0E after an emoji) gives its last column back
++        for (let delta = oldWidth - chWidth; --delta >= 0;) {
++          bufferRow.setCellFromCodepoint(--this._activeBuffer.x, 0, 1, curAttr);
++        }
+         continue;
+       }
+ 
+@@ -688,6 +692,11 @@ export class InputHandler extends Disposable implements IInputHandler {
      return this._parser.registerOscHandler(ident, new OscHandler(callback));
    }
  

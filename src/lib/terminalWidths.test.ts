@@ -1,7 +1,15 @@
 import { describe, expect, it } from "bun:test";
-import { Terminal } from "@xterm/xterm";
+import { join } from "node:path";
+import type { Terminal as XtermTerminal } from "@xterm/xterm";
 
+import { buildXtermSource, xtermSourcePlugin } from "../../scripts/build-xterm.ts";
 import { matchHerdrWidths } from "./terminalWidths.ts";
+
+// the patched source the app ships (the package's own build lacks the patch's narrowing join)
+const source = buildXtermSource(join(import.meta.dir, "../.."));
+const bundle = await Bun.build({ entrypoints: [join(source, "browser/public/Terminal.js")], plugins: [xtermSourcePlugin(source)], target: "bun" });
+if (!bundle.success) throw new AggregateError(bundle.logs, "Could not build xterm");
+const { Terminal } = await import(`data:text/javascript;base64,${Buffer.from(await bundle.outputs[0]!.text()).toString("base64")}`) as { Terminal: typeof XtermTerminal };
 
 /** Where the cursor stands after `text`, as xterm counts it with herdr's widths. */
 async function columnsAfter(text: string): Promise<number> {
@@ -32,6 +40,11 @@ const HERDR_COLUMNS: [string, string, number][] = [
   ["decomposed Hangul", "\u1112\u1161\u11ab", 2],
   ["Hangul and Han", "한漢", 4],
   ["ambiguous-width circle", "●", 1],
+  ["text presentation selector on an emoji", "⚽\ufe0e", 1],
+  ["text presentation selector on an emoji in the Enclosed Ideographic Supplement", "\u{1f21a}\ufe0e", 1],
+  ["text presentation selector on an emoji without a text form", "😀\ufe0e", 2],
+  ["an emoji presentation selector after a text one", "⚽\ufe0e\ufe0f", 1],
+  ["text presentation selector after a skin tone", "👍🏽\ufe0e", 2],
 ];
 
 describe("matchHerdrWidths", () => {
@@ -48,6 +61,27 @@ describe("matchHerdrWidths", () => {
     const line = term.buffer.active.getLine(0);
     expect(line?.getCell(0)?.getChars()).toBe("👨‍👩‍👧");
     expect(line?.getCell(2)?.getChars()).toBe("x");
+    term.dispose();
+  });
+
+  it("gives back the second cell of an emoji a text presentation selector narrows", async () => {
+    const term = new Terminal({ allowProposedApi: true, cols: 40, rows: 2 });
+    matchHerdrWidths(term);
+    await new Promise<void>((resolve) => term.write("A⚽", resolve));
+    // the selector may come in a later write
+    await new Promise<void>((resolve) => term.write("\ufe0eX", resolve));
+    const line = term.buffer.active.getLine(0);
+    expect([0, 1, 2].map((x) => [line?.getCell(x)?.getChars(), line?.getCell(x)?.getWidth()])).toEqual([["A", 1], ["⚽\ufe0e", 1], ["X", 1]]);
+    term.dispose();
+  });
+
+  it("narrows an emoji the last column wrapped", async () => {
+    const term = new Terminal({ allowProposedApi: true, cols: 4, rows: 3 });
+    matchHerdrWidths(term);
+    await new Promise<void>((resolve) => term.write("abc⚽\ufe0eX", resolve));
+    const line = term.buffer.active.getLine(1);
+    expect([0, 1].map((x) => line?.getCell(x)?.getChars())).toEqual(["⚽\ufe0e", "X"]);
+    expect(term.buffer.active.cursorX).toBe(2);
     term.dispose();
   });
 });
