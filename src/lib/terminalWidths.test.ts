@@ -83,12 +83,16 @@ describe("matchHerdrWidths", () => {
     term.dispose();
   });
 
-  it("keeps the character before an emoji that autowrap off dropped at the last column", async () => {
-    const term = new Terminal({ allowProposedApi: true, cols: 6, rows: 2 });
-    matchHerdrWidths(term);
-    await new Promise<void>((resolve) => term.write("\x1b[?7labcde\u26bd\ufe0eX", resolve));
-    const line = term.buffer.active.getLine(0);
-    expect(line?.translateToString(true).replace(/\ufe0e/g, "")).toBe("abcdeX");
-    term.dispose();
-  });
+  // the wide character before it keeps its two cells
+  for (const [before, cols, after, wideAt] of [["abcde", 6, "abcdeX", null], ["abc漢", 6, "abc漢X", 3], ["한한", 5, "한한X", 2]] as const) {
+    it(`keeps what came before an emoji that autowrap off dropped at the last column: ${before}`, async () => {
+      const term = new Terminal({ allowProposedApi: true, cols, rows: 2 });
+      matchHerdrWidths(term);
+      await new Promise<void>((resolve) => term.write(`\x1b[?7l${before}\u26bd\ufe0eX`, resolve));
+      const line = term.buffer.active.getLine(0);
+      expect(line?.translateToString(true).replace(/\ufe0e/g, "")).toBe(after);
+      if (wideAt !== null) expect(line?.getCell(wideAt)?.getWidth()).toBe(2);
+      term.dispose();
+    });
+  }
 });
