@@ -1,15 +1,11 @@
 import { describe, expect, it } from "bun:test";
 import { join } from "node:path";
-import type { Terminal as XtermTerminal } from "@xterm/xterm";
 
-import { buildXtermSource, xtermSourcePlugin } from "../../scripts/build-xterm.ts";
+import { patchedTerminal } from "../../scripts/build-xterm.ts";
 import { matchHerdrWidths } from "./terminalWidths.ts";
 
-// the patched source the app ships (the package's own build lacks the patch's narrowing join)
-const source = buildXtermSource(join(import.meta.dir, "../.."));
-const bundle = await Bun.build({ entrypoints: [join(source, "browser/public/Terminal.js")], plugins: [xtermSourcePlugin(source)], target: "bun" });
-if (!bundle.success) throw new AggregateError(bundle.logs, "Could not build xterm");
-const { Terminal } = await import(`data:text/javascript;base64,${Buffer.from(await bundle.outputs[0]!.text()).toString("base64")}`) as { Terminal: typeof XtermTerminal };
+// the patch narrows a cell a selector joins (U+FE0E)
+const Terminal = await patchedTerminal(join(import.meta.dir, "../.."));
 
 /** Where the cursor stands after `text`, as xterm counts it with herdr's widths. */
 async function columnsAfter(text: string): Promise<number> {
