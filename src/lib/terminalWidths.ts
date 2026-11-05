@@ -20,7 +20,8 @@
  *   jamo stay with the addon;
  * - it keeps an emoji two cells wide when the text-presentation selector (U+FE0E) follows,
  *   where herdr and herdr-core give an emoji that has a text form (⚽︎, ⌚︎; not 😀︎) one cell,
- *   and keep it at one through any selector after it. The cell narrows on the selector, as
+ *   and keep it at one through any selector after it (a ZWJ sequence after it is two cells,
+ *   a skin tone after it a cell of its own). The cell narrows on the selector, as
  *   the patched xterm then gives back the second column (patches/@xterm%2Fxterm@6.0.0.patch).
  */
 import type { IUnicodeVersionProvider, Terminal } from "@xterm/xterm";
@@ -42,6 +43,8 @@ const KNOWN_WIDE_EMOJI = 0x1f600;
 /** A zero-width character the addon joins to the cell before it, standing in for one it does not. */
 const KNOWN_INVISIBLE = 0x200c;
 const TEXT_PRESENTATION = 0xfe0e;
+const EMOJI_PRESENTATION_SELECTOR = 0xfe0f;
+const isSkinTone = (codepoint: number): boolean => codepoint >= 0x1f3fb && codepoint <= 0x1f3ff;
 /**
  * The two-cell emoji with a text-presentation sequence (Unicode's emoji-variation-sequences.txt),
  * as hex ranges: herdr gives each one cell when U+FE0E follows it.
@@ -127,9 +130,11 @@ export function herdrWidthProvider(): IUnicodeVersionProvider {
       return kind === "newer-emoji" ? 2 : kind === "invisible" ? 0 : inner.wcwidth(codepoint);
     },
     charProperties: (codepoint, preceding) => {
-      let answer = properties(codepoint, preceding);
+      // herdr starts a new cell for a skin tone after a narrowed emoji
+      const afterNarrowed = preceding === narrowed;
+      let answer = afterNarrowed && isSkinTone(codepoint) ? properties(codepoint, 0) : properties(codepoint, preceding);
       const joins = (answer & 1) === 1;
-      const narrows = joins && ((codepoint === TEXT_PRESENTATION && preceding === textFormEmoji) || preceding === narrowed);
+      const narrows = joins && (codepoint === TEXT_PRESENTATION ? preceding === textFormEmoji || afterNarrowed : codepoint === EMOJI_PRESENTATION_SELECTOR && afterNarrowed);
       if (narrows) answer = withWidth(answer, 1);
       narrowed = narrows ? answer : undefined;
       textFormEmoji = !joins && TEXT_FORM_EMOJI.has(codepoint) ? answer : undefined;

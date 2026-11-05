@@ -92,6 +92,8 @@ describe("GhosttyVt widths", () => {
     ["text-presentation selector on an emoji without a text form", "a\u{1f600}\ufe0eb c"],
     ["text- then emoji-presentation selector", "a\u26bd\ufe0e\ufe0fb c"],
     ["text-presentation selector after a skin tone", "a\u{1f44d}\u{1f3fd}\ufe0eb c"],
+    ["a ZWJ sequence after a text-presentation selector", "a\u231a\ufe0e\u200d\u231ab c"],
+    ["a skin tone after a text-presentation selector", "a\u{1f44d}\ufe0e\u{1f3fd}b c"],
     ["a style change before a skin tone", "a👍\x1b[31m🏽b c"],
     ["a style change before a ZWJ", "a👨\x1b[31m‍👩b c"],
     ["a style change after a ZWJ", "a👨‍\x1b[31m👩b c"],

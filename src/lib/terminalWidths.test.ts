@@ -41,6 +41,8 @@ const HERDR_COLUMNS: [string, string, number][] = [
   ["text presentation selector on an emoji without a text form", "😀\ufe0e", 2],
   ["an emoji presentation selector after a text one", "⚽\ufe0e\ufe0f", 1],
   ["text presentation selector after a skin tone", "👍🏽\ufe0e", 2],
+  ["a ZWJ sequence after a text presentation selector", "\u231a\ufe0e\u200d\u231a", 2],
+  ["a skin tone after a text presentation selector", "\u{1f44d}\ufe0e\u{1f3fd}", 3],
 ];
 
 describe("matchHerdrWidths", () => {
