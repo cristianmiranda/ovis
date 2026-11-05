@@ -151,7 +151,9 @@ async function setup(terminals: HcTerminal[], extra: Record<string, Handler> = {
     return core;
   };
   const hc = machine === undefined ? new HcConnection(spawn) : new MachineScopedConnection(spawn, machine, `${machine}-id`);
-  const adapter = await startHerdrCoreAdapter(hc, socket, observeSeen, { otherMachine: machine !== undefined });
+  // OpenCode's store, as these tests title its sessions: `ses_<title>`
+  const opencodeTitles = (ids: readonly string[]) => new Map(ids.map((id) => [id, id.slice("ses_".length)]));
+  const adapter = await startHerdrCoreAdapter(hc, socket, observeSeen, { otherMachine: machine !== undefined, opencodeTitles });
   cleanups.push(() => { adapter.stop(); hc.close(); rmSync(dir, { recursive: true, force: true }); });
   return { socket, cores, hc };
 }
@@ -535,9 +537,9 @@ it("asks for a fresh snapshot when a report's kind, message or progress changes,
     expect((await sessionSnapshot(socket)).panes[0]!.agent_status).toBe("idle");
   });
 
-  it("binds an OpenCode pane to the session it last reported pending, through rest, a switch and its exit", async () => {
+  it("binds an OpenCode pane to the named session its terminal title shows, through rest, a background tab, a switch and its exit", async () => {
     const opencode = (state: string) => ({ app: "opencode", state });
-    const t1 = terminal("t1", { status: opencode("working"), records: { ses_first: opencode("working") } });
+    const t1 = terminal("t1", { title: "OC | first", status: opencode("working"), records: { ses_first: opencode("working") } });
     const { socket } = await setup([t1]);
     const session = async () => (await sessionSnapshot(socket)).panes[0]!.agent_session ?? null;
     const reported = (value: string) => ({ agent: "opencode", source: "herdr:opencode", kind: "id", value });
@@ -546,20 +548,23 @@ it("asks for a fresh snapshot when a report's kind, message or progress changes,
     t1.status = opencode("idle");
     t1.records = {};
     expect(await session()).toEqual(reported("ses_first"));
-    // a subagent's session pending beside it leaves the pane on its own
-    t1.records = { ses_first: opencode("working"), ses_child: opencode("working") };
-    expect(await session()).toEqual(reported("ses_first"));
-    // another session prompted in the TUI is the one it shows now
+    // a background tab's session working alone takes nothing from the one on screen
+    t1.status = opencode("working");
     t1.records = { ses_second: opencode("working") };
-    expect(await session()).toEqual(reported("ses_second"));
-    // two pending sessions, neither the one it showed, name none
-    t1.records = { ses_third: opencode("working"), ses_fourth: opencode("working") };
-    expect(await session()).toBeNull();
-    t1.records = { ses_third: opencode("working") };
-    expect(await session()).toEqual(reported("ses_third"));
-    // once OpenCode is gone, the shell left in the terminal shows no session, nor the next OpenCode before it reports
-    t1.status = null;
+    expect(await session()).toEqual(reported("ses_first"));
+    // switched to that tab, resting: the title says so
+    t1.status = opencode("idle");
     t1.records = {};
+    t1.title = "OC | second";
+    expect(await session()).toEqual(reported("ses_second"));
+    // the home screen, or a session this terminal never named, shows none
+    t1.title = "OpenCode";
+    expect(await session()).toBeNull();
+    t1.title = "OC | third";
+    expect(await session()).toBeNull();
+    // once OpenCode is gone, the next one in the terminal shows nothing it named before
+    t1.title = "OC | first";
+    t1.status = null;
     expect(await session()).toBeNull();
     t1.status = opencode("idle");
     expect(await session()).toBeNull();
@@ -567,7 +572,7 @@ it("asks for a fresh snapshot when a report's kind, message or progress changes,
 
   it("remembers an OpenCode session a status event named, for a turn that ended before any snapshot", async () => {
     let channel = 0;
-    const t1 = terminal("t1", { status: { app: "opencode", state: "idle" } });
+    const t1 = terminal("t1", { title: "OC | short", status: { app: "opencode", state: "idle" } });
     const { socket, cores } = await setup([t1], {
       "events.subscribe": () => {
         channel = cores.at(-1)!.channel();

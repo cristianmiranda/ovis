@@ -629,6 +629,27 @@ export function opencodeSessionVersion(path: string, sessionId: string): string 
   }
 }
 
+/**
+ * The titles of these sessions (2.x or 1.x store), by id; a session without a title, or not in the
+ * store, is left out. Read without waiting on the store's writer: it runs on every snapshot.
+ */
+export function opencodeSessionTitles(path: string | null, sessionIds: readonly string[]): Map<string, string> {
+  const ids = sessionIds.filter((id) => SESSION_ID.test(id));
+  if (path === null || ids.length === 0) return new Map();
+  try {
+    return withStore(path, (db) => {
+      const flavor = storeFlavor(db);
+      if (flavor === "unknown") return new Map<string, string>();
+      const table = flavor === "v1" ? "session" : "session_v2";
+      const rows = db.query<{ id: string; title: unknown }, string[]>(`SELECT id, title FROM ${table} WHERE id IN (${ids.map(() => "?").join(", ")})`).all(...ids);
+      return new Map(rows.flatMap((row) => typeof row.title === "string" && row.title !== "" ? [[row.id, row.title] as const] : []));
+    }, 0) ?? new Map();
+  } catch (error) {
+    if (unusable(error) || busy(error)) return new Map();
+    throw error;
+  }
+}
+
 /* -------------------------------------------------------------------------------------------------
  * OpenCode 1.x: session / message / part
  *
