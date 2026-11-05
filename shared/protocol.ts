@@ -282,7 +282,7 @@ export type { DevicePairedEvent, DeviceRemovedEvent, PairingIntent, RelayPairing
  *         (the user's messages and the agent's answers that hold q, newest first, read through the
  *         same pages; a few pages per answer, `cursor` goes on as `before` with the answer's
  *         history_id. 409 history_changed, 503 conversation_read_pending as above; a pane with no
- *         readable store answers no matches.)
+ *         readable store answers no matches, one that loses it after a page was read 409 history_changed.)
  *  POST   /api/pane/close { pane_id }         -> { ok: true } (pane.close RPC; the collector's
  *         session-changed broadcast removes it from every client's sidebar)
  *  POST   /api/pane/rename { pane_id, label } -> { ok: true } (pane.rename; empty label clears it)

@@ -88,6 +88,15 @@ it("refuses a page from another history than the one it began on", async () => {
   await expect(searchConversationPages(read, searchPattern("x")!, { before: "5", historyId: "old" })).rejects.toBeInstanceOf(HistoryChanged);
 });
 
+it("refuses a conversation gone after a page of it was searched, and says a pane with none has none", async () => {
+  const page: RecognizedConversation = { source: "claude-transcript", turns: [{ role: "user", ts: "1", parts: [{ kind: "text", text: "x" }] }], metadata: { model: null, reasoning_effort: null }, cursor: "1", history_id: "h", version: "v" };
+  let reads = 0;
+  const gone = (): Promise<RecognizedConversation> => reads++ === 0 ? Promise.resolve(page) : Promise.reject(new conversation.ConversationUnavailable("no_session_path"));
+  await expect(searchConversationPages(gone, searchPattern("x")!, {})).rejects.toBeInstanceOf(HistoryChanged);
+  const none = (): Promise<RecognizedConversation> => Promise.reject(new conversation.ConversationUnavailable("no_session_path"));
+  await expect(searchConversationPages(none, searchPattern("x")!, {})).rejects.toBeInstanceOf(conversation.ConversationUnavailable);
+});
+
 const ask = (query: string) => {
   const url = new URL(`http://x/api/pane/conversation/search?pane_id=w1:p1&${query}`);
   return handlePaneRequest(new Request(url), url, "/api/pane/conversation/search", {});
@@ -124,4 +133,12 @@ it("answers a changed history 409, a pane with no store no matches, and a pendin
   expect(await none.json()).toEqual({ matches: [], cursor: null });
   read.mockRejectedValueOnce(new conversation.ConversationReadPending());
   expect((await ask("q=flag"))!.status).toBe(503);
+});
+
+it("answers 409 when a search's next page finds no conversation to read any more", async () => {
+  // the pages already searched held matches: an empty last answer would say the whole conversation was searched
+  spyOn(conversation, "paneConversation").mockRejectedValueOnce(new conversation.ConversationUnavailable("no_session_path"));
+  const gone = (await ask("q=flag&before=c1&history_id=h1"))!;
+  expect(gone.status).toBe(409);
+  expect((await gone.json() as { error: { code: string } }).error.code).toBe("history_changed");
 });
