@@ -231,6 +231,8 @@ bun scripts/old-safari-demo-regression.ts # a chat pane and a terminal pane draw
 bun scripts/push-health-demo-regression.ts # the alerts health notice with a stand-in PushManager: a retired subscription told once over the pane and in Settings, repaired once; a refusal, a key mismatch, denied, unsupported, offline, loading and a watching device's refused test, at 390 and 1440, light and dark, Korean at 390
 bun scripts/device-security-demo-regression.ts # Phone & devices on demo fixtures: revoking every device (the caller's warning, the confirmation, a refused write, a watching device) and the line every window gets when a device pairs
 bun scripts/chat-browser-qa.ts  # chat lens end to end
+bun scripts/conversation-search-browser-qa.ts # Search conversation at 1280 and 390: matches newest first, a pick four pages back read and put at the top, no match, a match no longer there
+bun scripts/conversation-search-demo-regression.ts # Search conversation in the app on demo fixtures at 1280 and 390: the pane's menu and the palette open it, a pick opens the chat there, and a bridge without `conversation-search` offers none
 bun scripts/omo-plan-browser-regression.ts # OmO todo progress and plan panel on isolated native fixtures
 bun scripts/pane-input-focus-demo-regression.ts # the input focus shortcut against fictional panes
 bun scripts/mirror-scroll-demo-regression.ts # fixed mirror wheel/touch, native history, no guessed program input, observe guards

@@ -128,6 +128,8 @@ export interface PaneTerminalProps {
   /** opens the New tab dialog on the pane's workspace (App's NewSessionDialog): the composer's new-agent button */
   onOpenNewSession?: () => void;
   findRequest?: number;
+  /** bumped to open Search conversation over the pane's chat (ChatView searchRequest) */
+  searchRequest?: number;
   controls?: { current: PaneControls | null };
   /** Only the selected tile may take keyboard focus after async work or a lens change. */
   active?: boolean;
@@ -186,6 +188,7 @@ export function PaneTerminal({
   machineName = "",
   view,
   findRequest = 0,
+  searchRequest = 0,
   controls,
   active = true,
   autoSelected = false,
@@ -1225,6 +1228,7 @@ export function PaneTerminal({
             interactive={!observing && role === "interact"}
             quotable={!secretActive}
             cwd={cwd}
+            searchRequest={searchRequest}
           />
           </RenderBoundary>
         )}
