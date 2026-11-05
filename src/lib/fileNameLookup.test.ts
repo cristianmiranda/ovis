@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test";
+import { describe, expect, it, jest } from "bun:test";
 
 import { ApiError } from "./api.ts";
 import { createFileNameLookup } from "./fileNameLookup.ts";
@@ -34,6 +34,14 @@ describe("a bare name in a code span", () => {
       const { names, listed } = lookup({ stat: () => Promise.reject(reason) });
       expect(await names.ask("foo.service")).toBe(true);
       expect(listed).toEqual([]);
+    }
+  });
+
+  it("stays a link when the folder of that name could not be asked", async () => {
+    for (const reason of [failure(401), failure(403), failure(503), new TypeError("offline")]) {
+      const { names, listed } = lookup({ stat: () => Promise.reject(failure(404)), folder: () => Promise.reject(reason) });
+      expect(await names.ask("config.d")).toBe(true);
+      expect(listed).toEqual(["config.d"]);
     }
   });
 
@@ -82,6 +90,24 @@ describe("a bare name in a code span", () => {
     expect(next.asked).toEqual([]);
   });
 
+  it("is asked again after the agent's turn ends while its answer is still coming", async () => {
+    const pending: Array<(found: boolean) => void> = [];
+    const stat = () => new Promise((resolve, reject) => { pending.push((found) => found ? resolve({}) : reject(failure(404))); });
+    const before = lookup({ stat, turn: 1 });
+    const first = before.names.ask("notes.md");
+    await Promise.resolve();
+    // the agent writes the file and its turn ends before the first answer comes
+    const after = lookup({ stat, turn: 2, scope: before.scope });
+    const second = after.names.ask("notes.md");
+    await Promise.resolve();
+    expect(after.asked).toEqual(["notes.md"]);
+    pending.shift()!(false);
+    pending.shift()!(true);
+    expect(await first).toBe(false);
+    expect(await second).toBe(true);
+    expect(after.names.known("notes.md")).toBe(true);
+  });
+
   it("asks the PC at most four names at once", async () => {
     const pending: Array<() => void> = [];
     const { names, asked } = lookup({ stat: () => new Promise((resolve) => { pending.push(() => resolve({})); }) });
@@ -95,5 +121,22 @@ describe("a bare name in a code span", () => {
     while (pending.length > 0) { pending.shift()!(); await Promise.resolve(); await Promise.resolve(); }
     expect(await Promise.all(answers)).toEqual([true, true, true, true, true, true]);
     expect(asked).toHaveLength(6);
+  });
+
+  it("frees the slot of a name the PC does not answer, which keeps its link", async () => {
+    jest.useFakeTimers();
+    try {
+      const { names, asked } = lookup({ stat: (name) => name.startsWith("stuck") ? new Promise(() => {}) : Promise.reject(failure(404)) });
+      const stuck = Array.from({ length: 4 }, (_, index) => names.ask(`stuck-${index}.slice`));
+      const later = names.ask("later.slice");
+      await Promise.resolve();
+      expect(asked).toHaveLength(4);
+      jest.advanceTimersByTime(10_000);
+      expect(await Promise.all(stuck)).toEqual([true, true, true, true]);
+      expect(await later).toBe(false);
+      expect(asked).toContain("later.slice");
+    } finally {
+      jest.useRealTimers();
+    }
   });
 });

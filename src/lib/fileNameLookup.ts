@@ -28,17 +28,23 @@ const KEPT_MS = 60_000;
 const KEPT = 500;
 /** names asked at once, so an answer full of them does not hold every file thread of the PC */
 const RUNNING = 4;
+/** a name not answered by then keeps its link and frees its slot: a PC that stopped answering holds up no other name */
+const ANSWER_MS = 10_000;
 
 interface Kept { at: number; turn: unknown; found: Promise<boolean>; answer?: boolean }
 const answers = new Map<string, Kept>();
 let running = 0;
 const waiting: Array<() => void> = [];
 
-/** `work` once one of the RUNNING slots is free; a slot freed goes straight to the next in line. */
-async function inSlot<T>(work: () => Promise<T>): Promise<T> {
+/** `work` once one of the RUNNING slots is free, or `late` after ANSWER_MS; a slot freed goes straight to the next in line. */
+async function inSlot<T>(work: () => Promise<T>, late: T): Promise<T> {
   if (running < RUNNING) running++;
   else await new Promise<void>((resolve) => waiting.push(resolve));
-  try { return await work(); } finally {
+  let deadline: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([work(), new Promise<T>((resolve) => { deadline = setTimeout(() => resolve(late), ANSWER_MS); })]);
+  } finally {
+    clearTimeout(deadline);
     const next = waiting.shift();
     if (next) next(); else running--;
   }
@@ -55,18 +61,21 @@ async function opens(name: string, stat: (name: string) => Promise<unknown>, fol
   try {
     await folder(name);
     return true;
-  } catch { return false; }
+  } catch (error) {
+    // only "no readable folder there" (400) is a miss; a folder that could not be asked keeps the link
+    return !(error instanceof ApiError && error.status === 400);
+  }
 }
 
 /**
- * The lookup for one pane's folder (`scope`). A name found is kept for KEPT_MS; one with nothing
- * only for the same `turn` too, as the agent may write it before its turn ends.
+ * The lookup for one pane's folder (`scope`). A name found is kept for KEPT_MS; one with nothing,
+ * or still being asked, only for the same `turn` too, as the agent may write it before its turn ends.
  */
 export function createFileNameLookup(scope: string, turn: unknown, stat: (name: string) => Promise<unknown>, folder: ((name: string) => Promise<unknown>) | null): FileNameLookup {
   const key = (name: string) => `${scope}\0${fileLineTarget(name).path}`;
   const kept = (name: string) => {
     const entry = answers.get(key(name));
-    return entry !== undefined && Date.now() - entry.at < KEPT_MS && (entry.answer !== false || entry.turn === turn) ? entry : undefined;
+    return entry !== undefined && Date.now() - entry.at < KEPT_MS && (entry.answer === true || entry.turn === turn) ? entry : undefined;
   };
   return {
     known: (name) => kept(name)?.answer,
@@ -74,7 +83,7 @@ export function createFileNameLookup(scope: string, turn: unknown, stat: (name: 
       const known = kept(name);
       if (known !== undefined) return known.found;
       const entry = { at: Date.now(), turn } as Kept;
-      entry.found = inSlot(() => opens(fileLineTarget(name).path, stat, folder)).then((answer) => entry.answer = answer);
+      entry.found = inSlot(() => opens(fileLineTarget(name).path, stat, folder), true).then((answer) => entry.answer = answer);
       answers.delete(key(name));
       answers.set(key(name), entry);
       if (answers.size > KEPT) answers.delete(answers.keys().next().value!);
