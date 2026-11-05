@@ -7,7 +7,7 @@ import { LINE_BYTES, makeLineReader } from "../herdr/client.ts";
 import { SHELL_AGENTS, shellCommandLine } from "../shell-agent.ts";
 import { type HcConnection, HcError } from "./connection.ts";
 import { foreignLayout, leaves, neighbour, OVIS_LAYOUT_DOC, type OvisLayout, type PaneDirection, resizeLeaf, setRatio, splitLeaf, swapLeaves, type TabLayout } from "./layout-doc.ts";
-import { agentInfoOf, agentOfStatus, agentStatusOf, buildSnapshot, type FirstTurn, keptLayout, opencodeRecords, opencodeShown, type SessionOf, reportedFacts, type HcStatus, type HcTerminal, hcKeyName, HERDR_PROTOCOL, isRecord, keyBytes, LAYOUT_DOC, onOtherMachine, OTHER_WORKSPACE_ID, PANE_NAME_LABEL, processInfoOf, SEEN_LABEL, shownStatusOf, SPACE_LABEL, TAB_LABEL, TAB_NAME_LABEL, WORKSPACE_NAME_LABEL } from "./snapshot.ts";
+import { agentInfoOf, agentOfStatus, agentStatusOf, buildSnapshot, type FirstTurn, keptLayout, opencodeRecords, type SessionOf, reportedFacts, type HcStatus, type HcTerminal, hcKeyName, HERDR_PROTOCOL, isRecord, keyBytes, LAYOUT_DOC, onOtherMachine, OTHER_WORKSPACE_ID, PANE_NAME_LABEL, processInfoOf, SEEN_LABEL, shownStatusOf, SPACE_LABEL, TAB_LABEL, TAB_NAME_LABEL, WORKSPACE_NAME_LABEL } from "./snapshot.ts";
 import { checkoutHolding, defaultCheckoutPath, factsOf, git, gitDirIdentity, labeledWorktree, realPath, type Checkout, type Repository, repositoryOf, WORKTREE_LABEL, WorktreeError, worktreeFolder, worktreeLabel } from "./worktrees.ts";
 import type { AgentStatus, SessionSnapshot } from "../../shared/herdr-api.generated.ts";
 import type { WorktreeInfo } from "../herdr/client.ts";
@@ -103,8 +103,8 @@ export type SeenObserver = (address: string, turn: number, labels: Record<string
  */
 export interface AdapterOptions {
   otherMachine?: boolean;
-  /** OpenCode's titles of these sessions, by id (opencode.ts `opencodeSessionTitles`); unset, no OpenCode pane shows a session */
-  opencodeTitles?: (sessionIds: readonly string[]) => ReadonlyMap<string, string>;
+  /** the OpenCode sessions whose terminal title this is (opencode.ts `opencodeSessionsTitled`); unset, no OpenCode pane shows a session */
+  opencodeTitled?: (terminalTitle: string) => readonly string[];
 }
 
 /** The sessions a terminal named that it keeps as candidates, the newest last. */
@@ -140,10 +140,12 @@ export async function startHerdrCoreAdapter(hc: HcConnection, socketPath: string
     sessions.set(address, named);
     return named;
   };
-  // a record names a busy tab, not the one on screen: the terminal title OpenCode sets says which
+  // a record names a busy tab, not the one on screen: the terminal title OpenCode sets says which,
+  // when no other session in OpenCode's store, reported here or not, has that title
   const sessionOf: SessionOf = (terminal) => {
     const named = noteSession(terminal.address, terminal.status, terminal.records);
-    const session = named.length === 0 || !options.opencodeTitles ? null : opencodeShown(terminal.title, options.opencodeTitles(named));
+    const titled = named.length === 0 || !terminal.title || !options.opencodeTitled ? [] : options.opencodeTitled(terminal.title);
+    const session = titled.length === 1 && named.includes(titled[0]!) ? titled[0]! : null;
     return session === null ? null : { agent: "opencode", source: "herdr:opencode", kind: "id", value: session };
   };
   const forgetTurns = (live: ReadonlySet<string>) => {

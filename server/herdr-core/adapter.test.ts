@@ -151,9 +151,10 @@ async function setup(terminals: HcTerminal[], extra: Record<string, Handler> = {
     return core;
   };
   const hc = machine === undefined ? new HcConnection(spawn) : new MachineScopedConnection(spawn, machine, `${machine}-id`);
-  // OpenCode's store, as these tests title its sessions: `ses_<title>`
-  const opencodeTitles = (ids: readonly string[]) => new Map(ids.map((id) => [id, id.slice("ses_".length)]));
-  const adapter = await startHerdrCoreAdapter(hc, socket, observeSeen, { otherMachine: machine !== undefined, opencodeTitles });
+  // OpenCode's store, as these tests title its sessions: each by its id's end, but two twins
+  const opencodeStore = [..."first second third short".split(" ").map((title) => [`ses_${title}`, title]), ["ses_twinA", "twin"], ["ses_twinB", "twin"]];
+  const opencodeTitled = (title: string) => opencodeStore.flatMap(([id, named]) => `OC | ${named}` === title ? [id!] : []);
+  const adapter = await startHerdrCoreAdapter(hc, socket, observeSeen, { otherMachine: machine !== undefined, opencodeTitled });
   cleanups.push(() => { adapter.stop(); hc.close(); rmSync(dir, { recursive: true, force: true }); });
   return { socket, cores, hc };
 }
@@ -557,10 +558,13 @@ it("asks for a fresh snapshot when a report's kind, message or progress changes,
     t1.records = {};
     t1.title = "OC | second";
     expect(await session()).toEqual(reported("ses_second"));
-    // the home screen, or a session this terminal never named, shows none
+    // the home screen, a session this terminal never named, or one whose title another session has too, shows none
     t1.title = "OpenCode";
     expect(await session()).toBeNull();
     t1.title = "OC | third";
+    expect(await session()).toBeNull();
+    t1.records = { ses_twinA: opencode("working") };
+    t1.title = "OC | twin";
     expect(await session()).toBeNull();
     // once OpenCode is gone, the next one in the terminal shows nothing it named before
     t1.title = "OC | first";

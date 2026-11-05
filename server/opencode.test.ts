@@ -4,7 +4,7 @@ import { existsSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
-import { forgetOpencodeRead, forgetOpencodeState, OPENCODE_ROW_SIZE, opencodeConversation, opencodeDatabasePath, opencodeImage, opencodeReadKey, opencodeRecord, opencodeSessionId, opencodeSessionTitles, opencodeToolOutput, opencodeTurns, pageStart, type OpencodeAnswer, type RowMeta } from "./opencode.ts";
+import { forgetOpencodeRead, forgetOpencodeState, OPENCODE_ROW_SIZE, opencodeConversation, opencodeDatabasePath, opencodeImage, opencodeReadKey, opencodeRecord, opencodeSessionId, opencodeSessionsTitled, opencodeToolOutput, opencodeTurns, pageStart, type OpencodeAnswer, type RowMeta } from "./opencode.ts";
 import type { ConversationPart, ConversationTurn } from "../shared/protocol.ts";
 
 const root = mkdtempSync(join(tmpdir(), "herdr-opencode-store-"));
@@ -762,11 +762,17 @@ describe("an OpenCode 1.x session (session/message/part)", () => {
   });
 });
 
-it("reads the titles of the sessions asked for, from a 2.x or 1.x store, and none it cannot read", () => {
+it("finds every session whose terminal title OpenCode would make this one, as it cuts a long title, in a 2.x or 1.x store", () => {
   const v2 = store("ses_titled1");
-  v2.db.query("INSERT INTO session_v2 (id, project_id, slug, directory, title, version, time_created, time_updated) VALUES ('ses_untitled1', 'global', 'slug', ?, '', '2.0.24', ?, ?)").run(root, T0, T0);
-  expect(opencodeSessionTitles(v2.path, ["ses_titled1", "ses_untitled1", "ses_absent1", "not a session"])).toEqual(new Map([["ses_titled1", "Test"]]));
-  expect(opencodeSessionTitles(storeV1("ses_old2").path, ["ses_old2"])).toEqual(new Map([["ses_old2", "Old"]]));
-  expect(opencodeSessionTitles(join(root, "absent.db"), ["ses_titled1"])).toEqual(new Map());
-  expect(opencodeSessionTitles(null, ["ses_titled1"])).toEqual(new Map());
+  const add = (id: string, title: string) => v2.db.query("INSERT INTO session_v2 (id, project_id, slug, directory, title, version, time_created, time_updated) VALUES (?, 'global', 'slug', ?, ?, '2.0.24', ?, ?)").run(id, root, title, T0, T0);
+  add("ses_long1", "Review the long pull request about the relay");
+  add("ses_long2", "Review the long pull request about the release");
+  add("ses_short1", "Review the long pull request about th");
+  expect(opencodeSessionsTitled(v2.path, "OC | Test")).toEqual(["ses_titled1"]);
+  expect(opencodeSessionsTitled(v2.path, "OC | Review the long pull request about th").sort()).toEqual(["ses_short1"]);
+  expect(opencodeSessionsTitled(v2.path, "OC | Review the long pull request about th\u2026").sort()).toEqual(["ses_long1", "ses_long2"]);
+  expect(opencodeSessionsTitled(v2.path, "OpenCode")).toEqual([]);
+  expect(opencodeSessionsTitled(storeV1("ses_old2").path, "OC | Old")).toEqual(["ses_old2"]);
+  expect(opencodeSessionsTitled(join(root, "absent.db"), "OC | Test")).toEqual([]);
+  expect(opencodeSessionsTitled(null, "OC | Test")).toEqual([]);
 });

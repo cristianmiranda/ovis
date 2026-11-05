@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import type { HerdrPane } from "../../shared/protocol.ts";
-import { buildSnapshot, type HcTerminal, keyBytes, opencodeRecords, opencodeShown, OTHER_WORKSPACE_ID } from "./snapshot.ts";
+import { buildSnapshot, type HcTerminal, keyBytes, opencodeRecords, OTHER_WORKSPACE_ID } from "./snapshot.ts";
 
 function terminal(address: string, extra: Partial<HcTerminal> = {}): HcTerminal {
   return { address, cols: 120, rows: 40, cwd: "/home/u", state: "live", ...extra };
@@ -354,15 +354,6 @@ describe("OpenCode sessions", () => {
   it("reads OpenCode's own pending records only, by their ids", () => {
     expect(opencodeRecords({ ses_a: { app: "opencode", state: "working" }, deploy: { app: "make", state: "working" }, ses_b: "working" })).toEqual(["ses_a"]);
     expect(opencodeRecords(undefined)).toEqual([]);
-  });
-
-  it("takes the one session whose title the terminal title shows, as OpenCode cuts it, and none on a tie or no title", () => {
-    const titles = new Map([["ses_a", "Fix the login"], ["ses_b", "Review the long pull request about the relay"], ["ses_c", "Fix the login"], ["ses_d", "Deploy"]]);
-    expect(opencodeShown("OC | Deploy", titles)).toBe("ses_d");
-    expect(opencodeShown("OC | Review the long pull request about th\u2026", titles)).toBe("ses_b");
-    expect(opencodeShown("OC | Fix the login", titles)).toBeNull();
-    expect(opencodeShown("OpenCode", titles)).toBeNull();
-    expect(opencodeShown(null, titles)).toBeNull();
   });
 
   it("puts the session it is given on the pane and its agent", () => {

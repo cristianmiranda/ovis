@@ -123,7 +123,7 @@ export function agentOf(terminal: HcTerminal): string | null {
  * The sessions an OpenCode TUI reports as pending (its `program-status.ts`): one OSC 7501 record per
  * open tab's session that works or waits, under the session's id, cleared once it rests. A record
  * says nothing of which tab is on screen, and hc names a resting session nowhere: the sessions a
- * terminal ever named are only candidates for the one it shows (`opencodeShown`).
+ * terminal ever named are only candidates for the one it shows (adapter.ts `sessionOf`).
  */
 export function opencodeRecords(records: unknown): string[] {
   if (!isRecord(records)) return [];
@@ -133,23 +133,6 @@ export function opencodeRecords(records: unknown): string[] {
   });
 }
 
-/**
- * The terminal title OpenCode's TUI sets on a session with this title (its `app.tsx`). An untitled
- * session's title is plain `OpenCode`, as on its home screen: it names no session.
- */
-export function opencodeTerminalTitle(title: string): string {
-  return `OC | ${title.length > 40 ? `${title.slice(0, 37)}\u2026` : title}`;
-}
-
-/**
- * The session an OpenCode terminal shows: of the sessions it named (`titles`, by id), the one its
- * terminal title is the title of, and none when no candidate or more than one has that title.
- */
-export function opencodeShown(terminalTitle: string | null | undefined, titles: ReadonlyMap<string, string>): string | null {
-  if (!terminalTitle) return null;
-  const shown = [...titles].filter(([, title]) => opencodeTerminalTitle(title) === terminalTitle);
-  return shown.length === 1 ? shown[0]![0] : null;
-}
 
 /** The agent session a terminal shows, as herdr's OpenCode integration reports it (adapter.ts `sessionOf`). */
 export type SessionOf = (terminal: HcTerminal) => AgentSessionInfo | null;
