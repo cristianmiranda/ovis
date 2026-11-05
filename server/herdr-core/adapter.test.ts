@@ -535,6 +535,66 @@ it("asks for a fresh snapshot when a report's kind, message or progress changes,
     expect((await sessionSnapshot(socket)).panes[0]!.agent_status).toBe("idle");
   });
 
+  it("binds an OpenCode pane to the session it last reported pending, through rest, a switch and its exit", async () => {
+    const opencode = (state: string) => ({ app: "opencode", state });
+    const t1 = terminal("t1", { status: opencode("working"), records: { ses_first: opencode("working") } });
+    const { socket } = await setup([t1]);
+    const session = async () => (await sessionSnapshot(socket)).panes[0]!.agent_session ?? null;
+    const reported = (value: string) => ({ agent: "opencode", source: "herdr:opencode", kind: "id", value });
+    expect(await session()).toEqual(reported("ses_first"));
+    // OpenCode clears a session's record once it rests: the pane still shows it
+    t1.status = opencode("idle");
+    t1.records = {};
+    expect(await session()).toEqual(reported("ses_first"));
+    // a subagent's session pending beside it leaves the pane on its own
+    t1.records = { ses_first: opencode("working"), ses_child: opencode("working") };
+    expect(await session()).toEqual(reported("ses_first"));
+    // another session prompted in the TUI is the one it shows now
+    t1.records = { ses_second: opencode("working") };
+    expect(await session()).toEqual(reported("ses_second"));
+    // two pending sessions, neither the one it showed, name none
+    t1.records = { ses_third: opencode("working"), ses_fourth: opencode("working") };
+    expect(await session()).toBeNull();
+    t1.records = { ses_third: opencode("working") };
+    expect(await session()).toEqual(reported("ses_third"));
+    // once OpenCode is gone, the shell left in the terminal shows no session, nor the next OpenCode before it reports
+    t1.status = null;
+    t1.records = {};
+    expect(await session()).toBeNull();
+    t1.status = opencode("idle");
+    expect(await session()).toBeNull();
+  });
+
+  it("remembers an OpenCode session a status event named, for a turn that ended before any snapshot", async () => {
+    let channel = 0;
+    const t1 = terminal("t1", { status: { app: "opencode", state: "idle" } });
+    const { socket, cores } = await setup([t1], {
+      "events.subscribe": () => {
+        channel = cores.at(-1)!.channel();
+        return { channel, seq: 1, terminals: [t1] };
+      },
+    });
+    const statuses: unknown[] = [];
+    const started = Promise.withResolvers<void>();
+    const told = Promise.withResolvers<void>();
+    const subscription = subscribeEvents([{ type: "pane.agent_status_changed", pane_id: "t1" }], {
+      onEvent: (frame) => { if (statuses.push(frame.data?.["agent_status"]) === 2) told.resolve(); },
+      onStarted: () => started.resolve(),
+      onClose() {},
+    }, socket);
+    cleanups.push(() => subscription.close());
+    await started.promise;
+    const core = cores[0]!;
+    const pending = { ses_short: { app: "opencode", state: "working" } };
+    core.notify(channel, "event", { seq: 2, type: "status", terminal: "t1", data: { status: { app: "opencode", state: "working" }, records: pending } });
+    core.notify(channel, "event", { seq: 3, type: "status", terminal: "t1", data: { status: { app: "opencode", state: "idle" }, records: {} } });
+    // told only as a status of its own, so the two before it have been heard
+    core.notify(channel, "event", { seq: 4, type: "status", terminal: "t1", data: { status: { app: "opencode", state: "blocked" }, records: {} } });
+    await told.promise;
+    expect(statuses).toEqual(["working", "blocked"]);
+    expect((await sessionSnapshot(socket)).panes[0]!.agent_session).toEqual({ agent: "opencode", source: "herdr:opencode", kind: "id", value: "ses_short" });
+  });
+
   it("fails what waited on a line to hc that ended, and opens a new one for the next call", async () => {
     const { socket, cores } = await setup([terminal("t1")]);
     await sessionSnapshot(socket);

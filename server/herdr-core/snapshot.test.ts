@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import type { HerdrPane } from "../../shared/protocol.ts";
-import { buildSnapshot, type HcTerminal, keyBytes, OTHER_WORKSPACE_ID } from "./snapshot.ts";
+import { buildSnapshot, type HcTerminal, keyBytes, opencodeRecords, opencodeSession, OTHER_WORKSPACE_ID } from "./snapshot.ts";
 
 function terminal(address: string, extra: Partial<HcTerminal> = {}): HcTerminal {
   return { address, cols: 120, rows: 40, cwd: "/home/u", state: "live", ...extra };
@@ -347,6 +347,30 @@ describe("buildSnapshot, what herdr-core reports beyond placement", () => {
       ["t4", undefined, undefined, undefined],
       ["t5", undefined, undefined, undefined],
     ]);
+  });
+});
+
+describe("OpenCode sessions", () => {
+  it("reads OpenCode's own pending records only, by their ids", () => {
+    expect(opencodeRecords({ ses_a: { app: "opencode", state: "working" }, deploy: { app: "make", state: "working" }, ses_b: "working" })).toEqual(["ses_a"]);
+    expect(opencodeRecords(undefined)).toEqual([]);
+  });
+
+  it("keeps the session shown while it rests or is pending, takes a lone other one, and guesses none among several", () => {
+    expect(opencodeSession([], null)).toBeNull();
+    expect(opencodeSession(["ses_a"], null)).toBe("ses_a");
+    expect(opencodeSession([], "ses_a")).toBe("ses_a");
+    expect(opencodeSession(["ses_a", "ses_child"], "ses_a")).toBe("ses_a");
+    expect(opencodeSession(["ses_b"], "ses_a")).toBe("ses_b");
+    expect(opencodeSession(["ses_b", "ses_c"], "ses_a")).toBeNull();
+  });
+
+  it("puts the session it is given on the pane and its agent", () => {
+    const session = { agent: "opencode", source: "herdr:opencode", kind: "id", value: "ses_a" };
+    const snapshot = buildSnapshot([terminal("t1", { status: { app: "opencode", state: "idle" } }), terminal("t2")], null, "0.1.18", undefined, undefined,
+      (entry) => entry.address === "t1" ? session : null);
+    expect(snapshot.panes.map((pane) => pane.agent_session ?? null)).toEqual([session, null]);
+    expect(snapshot.agents.map((agent) => agent.agent_session ?? null)).toEqual([session]);
   });
 });
 
