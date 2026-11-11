@@ -674,6 +674,38 @@ it("asks for a fresh snapshot when a report's kind, message or progress changes,
     expect(await session()).toBeNull();
   });
 
+  it("keeps an OpenCode pane's named sessions in its label, so a pane resting through a restart of Ovis still shows its session", async () => {
+    const opencode = (state: string) => ({ app: "opencode", state });
+    const reported = (value: string) => ({ agent: "opencode", source: "herdr:opencode", kind: "id", value });
+    const t1 = terminal("t1", { title: "OC | first", status: opencode("working"), records: { ses_first: opencode("working") } });
+    const t2 = terminal("t2", { title: "OC | second", status: opencode("idle"), labels: { "ovis.opencode": "ses_first ses_second" } });
+    const t3 = terminal("t3", { title: "OC | third", status: null, labels: { "ovis.opencode": "ses_third" } });
+    const terminals = [t1, t2, t3];
+    const written: unknown[] = [];
+    const waits: { count: number; resolve: () => void }[] = [];
+    const writes = (count: number) => new Promise<void>((resolve) => { if (written.length >= count) resolve(); else waits.push({ count, resolve }); });
+    const { socket } = await setup(terminals, {
+      "terminal.label": (params) => {
+        written.push(params);
+        for (const wait of waits) if (written.length >= wait.count) wait.resolve();
+        return terminals.find((entry) => entry.address === params["terminal"])!;
+      },
+    });
+    const sessions = async () => (await sessionSnapshot(socket)).panes.map((pane) => pane.agent_session ?? null);
+    // a session reported while this server ran is written down; one resting since before it started is read back
+    expect(await sessions()).toEqual([reported("ses_first"), reported("ses_second"), null]);
+    await writes(2);
+    expect(written).toEqual([{ terminal: "t1", labels: { "ovis.opencode": "ses_first" } }, { terminal: "t3", labels: { "ovis.opencode": "" } }]);
+    // once OpenCode is gone the label goes too, and a terminal seen without it never reads its label
+    t1.status = null;
+    expect(await sessions()).toEqual([null, reported("ses_second"), null]);
+    await writes(3);
+    expect(written.at(-1)).toEqual({ terminal: "t1", labels: { "ovis.opencode": "" } });
+    t3.status = opencode("idle");
+    t3.labels = { "ovis.opencode": "ses_third" };
+    expect((await sessions())[2]).toBeNull();
+  });
+
   it("remembers an OpenCode session a status event named, for a turn that ended before any snapshot", async () => {
     let channel = 0;
     const t1 = terminal("t1", { title: "OC | short", status: { app: "opencode", state: "idle" } });
