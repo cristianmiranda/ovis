@@ -65,6 +65,7 @@ import { activeTrigger, applyCompletion, type ActiveTrigger } from "../lib/menti
 import { resolveComposerMenuActiveItemId } from "../lib/composerMenuHighlight.ts";
 import { enterSendsOn, quickReplyButtons, useSettings } from "../lib/settings.ts";
 import { composerUsage, formatPercent, formatResetIn, HIGH_PERCENT, isCurrent, meterPercent, meterText, planForPane, recordedNote, statusWindows, usageName, useUsage, windowLabel } from "../lib/usage.ts";
+import { OpenCodeModelDialog } from "./OpenCodeModelDialog.tsx";
 import { AgentMark } from "./AgentMark.tsx";
 import { Artifacts } from "./Artifacts.tsx";
 import { OmpBtw } from "./OmpBtw.tsx";
@@ -192,7 +193,7 @@ export function Composer({
   backgroundTasks = 0,
   plan = null,
   backgroundWait = false,
-  metadata,
+  metadata: recordedMetadata,
   answerHint = null,
   waitingAnswer = null,
   suggestion = null,
@@ -218,6 +219,13 @@ export function Composer({
   const { settings, resolvedLanguage } = useSettings();
   const mobile = useMediaQuery("(max-width: 640px), (pointer: coarse)");
   const viewOnly = role === "observe";
+  // an OpenCode switch made here shows at once; the transcript's own record takes over once it changes
+  const [modelDialog, setModelDialog] = useState(false);
+  const [switched, setSwitched] = useState<{ model: string; effort: string | null; was: string } | null>(null);
+  const recorded = `${recordedMetadata?.model ?? ""}\u0000${recordedMetadata?.reasoning_effort ?? ""}`;
+  useEffect(() => { setSwitched((previous) => previous !== null && previous.was !== recorded ? null : previous); }, [recorded]);
+  const metadata = useMemo(() => switched === null ? recordedMetadata
+    : { ...(recordedMetadata ?? { model: null, reasoning_effort: null }), model: switched.model, reasoning_effort: switched.effort }, [recordedMetadata, switched]);
   const enterSends = enterSendsOn(settings, useMediaQuery("(pointer: coarse)"));
   // the agent the pane runs, for every decision of its kind; herdr's label is the one shown
   const kind = labelledAgent(agent);
@@ -1071,6 +1079,10 @@ export function Composer({
   const hint = composerStatusHint({ uploading, connected, text, noRoom: roomless !== undefined });
   const model = metadata?.model ? modelLabel(metadata.model) : null;
   const modelShown = Boolean(metadata?.model || metadata?.reasoning_effort);
+  // OpenCode's service switches its session's model, provider and effort (OpenCodeModelDialog)
+  const modelSwitchable = agent === "opencode" && modelShown && connected && !viewOnly;
+  const Pill = modelSwitchable ? "button" : "span";
+  const pillProps = modelSwitchable ? { type: "button" as const, title: t("Change model"), "aria-haspopup": "dialog" as const, onClick: () => setModelDialog(true) } : {};
   const usageDetail = usageWindows.map((window) => {
     const reset = formatResetIn(window.resets_at, Date.now());
     return `${windowLabel(window)} ${meterText(window, settings.usageCount)}${reset ? ` · ${t("Resets in {time}", { time: reset })}` : ""}`;
@@ -1448,7 +1460,7 @@ export function Composer({
             {/* the mark, the model, the level and the context ring as one quiet pill. It only shows: no role,
                 no focus, nothing to press but the ring inside it. A pane that names no model draws no pill
                 (.is-bare): the mark, a level if it has one, and the ring stand in the row as they are */}
-            <span className={`composer-pill${metadata?.model ? "" : " is-bare"}`}>
+            <Pill className={`composer-pill${metadata?.model ? "" : " is-bare"}${modelSwitchable ? " is-switchable" : ""}`} {...pillProps}>
               {agent && <AgentMark agent={agent} size={14} />}
               {modelShown && <span className="composer-model-info" aria-label={t("Model and reasoning")}>
                 {/* a name only for an id modelLabel can name for certain; any other id is drawn as received, in the identifier face */}
@@ -1472,7 +1484,7 @@ export function Composer({
                 <span aria-hidden="true">{usageCaption}</span>
                 <span className="visually-hidden">{usageAccessible}</span>
               </span>}
-            </span>
+            </Pill>
             {/* the chip is a button in the left controls; its count is still said here, where a change is announced */}
             {backgroundTasks > 0 && <span className="composer-task-count visually-hidden">{t(backgroundTasks === 1 ? "{n} background task" : "{n} background tasks", { n: backgroundTasks })}</span>}
           </span>
@@ -1535,6 +1547,11 @@ export function Composer({
       )}
       {/* above the whole composer: inside the surface it would cover the text being dictated */}
       {dictation.shown && <VoiceRecordingPill dictation={dictation} align="start" />}
+      {modelDialog && <OpenCodeModelDialog
+        paneId={paneId}
+        onSwitched={(choice) => { setSwitched({ model: choice.model, effort: choice.variant, was: recorded }); setModelDialog(false); }}
+        onClose={() => setModelDialog(false)}
+      />}
     </div>
   );
 }

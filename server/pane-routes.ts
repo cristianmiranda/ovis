@@ -1,5 +1,5 @@
 /** The dispatcher in index.ts runs the access gate first. */
-import type { AgentRenameRequest, PaneDirection, PaneMoved, PaneResized, PaneSplit, PaneSwapped, PaneZoomed, ReadFormat, ReadSource } from "../shared/protocol.ts";
+import type { AgentRenameRequest, OpenCodeModelSwitchRequest, PaneDirection, PaneMoved, PaneResized, PaneSplit, PaneSwapped, PaneZoomed, ReadFormat, ReadSource } from "../shared/protocol.ts";
 import { mergeCatalogSources } from "./catalog-sources.ts";
 import { rememberPaneCommands, scanPaneCommands } from "./commands.ts";
 import { paneDocuments, paneFiles } from "./files.ts";
@@ -12,6 +12,7 @@ import { PANE_SUMMARY_DEADLINE_MS, PANE_SUMMARY_KEEP_MS, PANE_SUMMARY_MAX_IDS, P
 import { searchConversationPages } from "./conversation-search.ts";
 import { OPENCODE_TOOL_REF } from "./opencode.ts";
 import { openCodeFlagVersion, openCodeInstalledVersion } from "./opencode-service.ts";
+import { paneOpenCodeModels, switchPaneOpenCodeModel } from "./opencode-model.ts";
 import { DevinHistoryChanged } from "./devin.ts";
 import { agentRename, HerdrError, integrationList, layoutSetSplitRatio, paneClear, paneClose, paneFind, paneFocus, paneGet, paneMoveBeside, paneRead, paneRename, paneResize, paneScroll, paneScrollInfo, paneSelectionRead, paneSendKeys, paneSendText, paneSplit, paneSwap, paneSwapWith, paneZoom } from "./herdr/client.ts";
 import { paneContext, resolveAgent, versionSourceOf } from "./pane-context.ts";
@@ -156,6 +157,34 @@ export async function handlePaneRequest(request: Request, url: URL, pathname: st
       const limit = limitRaw === null ? 20 : Number(limitRaw);
       if (!Number.isInteger(limit) || limit < 1) return badRequest("invalid_limit", "limit must be a positive integer");
       return jsonResponse({ files: await paneFiles(context.cwd, url.searchParams.get("q") ?? "", Math.min(limit, 100)) });
+    } catch (error) {
+      return errorResponse(error);
+    }
+  }
+
+  if (pathname === "/api/pane/opencode/models") {
+    setRequestRoute(pathname);
+    if (request.method !== "GET") return badRequest("method_not_allowed", "use GET");
+    const paneId = url.searchParams.get("pane_id");
+    if (!paneId) return badRequest("missing_pane_id", "pane_id query parameter is required");
+    try {
+      return await paneOpenCodeModels(paneId, options.openCodeStateDir, request.signal);
+    } catch (error) {
+      return errorResponse(error);
+    }
+  }
+
+  if (pathname === "/api/pane/opencode/model") {
+    setRequestRoute(pathname);
+    if (request.method !== "POST") return badRequest("method_not_allowed", "use POST");
+    const payload = await readJsonObject<Partial<Record<keyof OpenCodeModelSwitchRequest, unknown>>>(request);
+    if (payload instanceof Response) return payload;
+    const { pane_id: paneId, provider, model, variant } = payload;
+    if (typeof paneId !== "string" || paneId.length === 0) return badRequest("missing_pane_id", "pane_id is required");
+    if (typeof provider !== "string" || provider.length === 0 || typeof model !== "string" || model.length === 0) return badRequest("missing_model", "provider and model are required");
+    if (variant !== null && (typeof variant !== "string" || variant.length === 0)) return badRequest("invalid_variant", "variant is a name or null");
+    try {
+      return await switchPaneOpenCodeModel(paneId, { provider, model, variant }, options.openCodeStateDir, request.signal);
     } catch (error) {
       return errorResponse(error);
     }

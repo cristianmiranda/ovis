@@ -195,6 +195,19 @@
   overflow: hidden;
 }
 
+.composer-pill.is-switchable {
+  border: 0;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  .composer-pill.is-switchable:hover {
+    background: var(--accent-tint);
+  }
+}
+
 .composer-pill.is-bare,
 .composer-status[data-model="out"] .composer-pill {
   display: contents;

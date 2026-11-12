@@ -19,6 +19,9 @@ import type {
   HerdrPane,
   AgentKind,
   AgentRenameRequest,
+  OpenCodeModelCatalog,
+  OpenCodeModelChoice,
+  OpenCodeModelSwitchRequest,
   CommandOutcome,
   ConversationResponse,
   CreateWorktreeRequest,
@@ -1393,6 +1396,14 @@ export async function fetchPanePlan(paneId: string, machineId = "local"): Promis
 export async function fetchPaneFiles(paneId: string, query: string, limit = 20, machineId = "local"): Promise<string[]> {
   const params = new URLSearchParams({ pane_id: paneId, q: query, limit: String(limit) });
   return (await getJson<{ files: string[] }>(machinePath(machineId, `pane/files?${params.toString()}`))).files;
+}
+
+export async function fetchOpenCodeModels(paneId: string, machineId = "local", signal?: AbortSignal): Promise<OpenCodeModelCatalog> {
+  return getJson<OpenCodeModelCatalog>(machinePath(machineId, `pane/opencode/models?pane_id=${encodeURIComponent(paneId)}`), { signal });
+}
+
+export async function switchOpenCodeModel(paneId: string, choice: OpenCodeModelChoice, machineId = "local"): Promise<void> {
+  await sendJson(machinePath(machineId, "pane/opencode/model"), "POST", { pane_id: paneId, ...choice } satisfies OpenCodeModelSwitchRequest);
 }
 
 export async function fetchPaneDocuments(paneId: string, machineId = "local", signal?: AbortSignal): Promise<PaneDocuments> {
