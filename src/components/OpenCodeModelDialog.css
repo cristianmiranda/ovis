@@ -1,0 +1,26 @@
+.opencode-model-dialog {
+  width: min(100%, 420px);
+}
+
+.opencode-model-dialog:focus {
+  outline: none;
+}
+
+.opencode-model-fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.opencode-model-note {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: var(--fs-sm);
+}
+
+.opencode-model-error {
+  margin: 0;
+  color: var(--status-blocked);
+  font-size: var(--fs-xs);
+  overflow-wrap: anywhere;
+}

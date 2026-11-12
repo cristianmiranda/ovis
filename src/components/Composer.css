@@ -244,6 +244,20 @@
 
 /* no model to show, or the label stepped out: no pill either. Its box is gone, so the mark and
    the ring stand in the status row itself, as they did before there was a pill */
+/* an OpenCode pane's pill opens its model switch (OpenCodeModelDialog): the same pill, pressable */
+.composer-pill.is-switchable {
+  border: 0;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  .composer-pill.is-switchable:hover {
+    background: var(--accent-tint);
+  }
+}
+
 .composer-pill.is-bare,
 .composer-status[data-model="out"] .composer-pill {
   display: contents;

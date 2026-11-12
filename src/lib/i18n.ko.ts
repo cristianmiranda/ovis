@@ -482,6 +482,7 @@ const BASE: Record<string, string> = {
   "{used} of {window} tokens": "{window} 토큰 중 {used}",
   "Permission mode": "권한 모드",
   "Model": "모델",
+  "Provider": "제공업체",
   "One model name, without spaces.": "띄어쓰기 없는 모델 이름 하나를 적으세요.",
   "Effort": "노력 수준",
   "Sandbox and approvals": "샌드박스와 승인",

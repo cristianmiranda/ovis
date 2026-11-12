@@ -484,6 +484,7 @@ const BASE: Record<string, string> = {
   "{used} of {window} tokens": "{used} / {window} トークン",
   "Permission mode": "権限モード",
   "Model": "モデル",
+  "Provider": "プロバイダー",
   "One model name, without spaces.": "空白を含まないモデル名を一つ指定してください。",
   "Effort": "推論レベル",
   "Sandbox and approvals": "サンドボックスと承認",

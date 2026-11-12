@@ -306,6 +306,59 @@ export async function listOpenCodeCatalog(config: OpenCodeServiceConfig, directo
   return { commands, skills };
 }
 
+export interface OpenCodeModelRef { providerID: string; id: string; variant?: string }
+export interface OpenCodeModelInfo { providerID: string; id: string; name: string; variants: string[] }
+export interface OpenCodeProviderInfo { id: string; name: string }
+
+const modelRef = (value: unknown): OpenCodeModelRef | null => {
+  const ref = object(value);
+  if (!ref || typeof ref.id !== "string" || !ref.id || typeof ref.providerID !== "string" || !ref.providerID) return null;
+  return { providerID: ref.providerID, id: ref.id, ...(typeof ref.variant === "string" && ref.variant ? { variant: ref.variant } : {}) };
+};
+
+/**
+ * GET /api/model and /api/provider for one directory: the chat models a session may switch to, each with
+ * its variants (the efforts OpenCode offers for it). Only names and ids leave here: a model's settings and
+ * headers carry the account's own values.
+ */
+export async function listOpenCodeModels(config: OpenCodeServiceConfig, directory: string, signal?: AbortSignal): Promise<{ providers: OpenCodeProviderInfo[]; models: OpenCodeModelInfo[] } | null> {
+  const [modelBody, providerBody] = await Promise.all([
+    getJson(config, `/api/model?${locationQuery(directory)}`, signal, 8 * 1024 * 1024),
+    getJson(config, `/api/provider?${locationQuery(directory)}`, signal),
+  ]);
+  const modelItems = listed(modelBody, directory);
+  const providerItems = listed(providerBody, directory);
+  if (!modelItems || !providerItems) return null;
+  const providers = providerItems.flatMap((item): OpenCodeProviderInfo[] => {
+    const row = object(item);
+    return row && typeof row.id === "string" && row.id ? [{ id: row.id, name: typeof row.name === "string" && row.name ? row.name : row.id }] : [];
+  });
+  const models = modelItems.flatMap((item): OpenCodeModelInfo[] => {
+    const row = object(item);
+    if (!row || typeof row.id !== "string" || !row.id || typeof row.providerID !== "string" || !row.providerID) return [];
+    if (row.enabled === false || row.status === "deprecated" || (row.type !== undefined && row.type !== "chat")) return [];
+    const variants = Array.isArray(row.variants) ? row.variants.flatMap((variant) => {
+      const id = object(variant)?.id;
+      return typeof id === "string" && id ? [id] : [];
+    }) : [];
+    return [{ providerID: row.providerID, id: row.id, name: typeof row.name === "string" && row.name ? row.name : row.id, variants }];
+  });
+  return { providers, models };
+}
+
+/** The model, provider and variant the service says a session runs on now. */
+export async function openCodeSessionModel(config: OpenCodeServiceConfig, sessionID: string, signal?: AbortSignal): Promise<OpenCodeModelRef | null> {
+  const session = object(object(await getJson(config, `/api/session/${encodeURIComponent(sessionID)}`, signal))?.data);
+  return session?.id === sessionID ? modelRef(session.model) : null;
+}
+
+/** POST /api/session/{id}/model: the session's next turns run on this model; its TUI shows the switch at once. */
+export async function switchOpenCodeModel(config: OpenCodeServiceConfig, sessionID: string, model: OpenCodeModelRef, signal?: AbortSignal): Promise<{ ok: boolean; status: number }> {
+  const response = await openCodeRequest(config, `/api/session/${encodeURIComponent(sessionID)}/model`, signal, JSON.stringify({ model }));
+  const status = response?.status ?? 0;
+  return { ok: status === 200 || status === 204, status };
+}
+
 export interface OpenCodeEvent {
   type: string;
   created?: number;

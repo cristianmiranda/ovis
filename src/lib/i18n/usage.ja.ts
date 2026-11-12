@@ -25,7 +25,6 @@ export const USAGE_JA: Record<string, string> = {
   "How do you want to sign in?": "ログイン方法を選択",
   "Sign in to {provider}": "{provider} にログイン",
   "Connect a hub": "ハブを接続",
-  "Provider": "プロバイダー",
   "Connection": "接続",
   "Method": "方法",
   "Account setup": "アカウント設定",

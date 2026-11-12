@@ -1,6 +1,6 @@
 /**
  * Korean for the keys only the composer files use:
- * components/Composer.tsx (with SOURCE_LABEL), components/ComposerNotices.tsx,
+ * components/Composer.tsx (with SOURCE_LABEL), components/ComposerNotices.tsx, components/OpenCodeModelDialog.tsx,
  * components/VoiceInput.tsx, components/SecretInput.tsx, components/TerminalInput.tsx,
  * components/PendingMessages.tsx, lib/compose.ts, components/PromptCard.tsx, lib/promptAnswer.ts,
  * and ../../../shared/card-text.ts (CARD_TEXT, the card text the bridge writes itself).
@@ -57,6 +57,8 @@ export const COMPOSER_KO: Record<string, string> = {
   "Reasoning effort: {effort}": "추론 강도: {effort}",
   "Reasoning effort not available": "추론 강도 정보 없음",
   "Reasoning {effort}": "추론 {effort}",
+  "Change model": "모델 변경",
+  "Model default": "모델 기본값",
   "Uploading file…": "파일 올리는 중…",
   "{max}-character limit · {count} over": "{max}자 한도 · {count}자 넘침",
   "{max}-character limit": "{max}자 한도",

@@ -16,6 +16,9 @@ import type {
   HerdrPane,
   AgentKind,
   AgentRenameRequest,
+  OpenCodeModelCatalog,
+  OpenCodeModelChoice,
+  OpenCodeModelSwitchRequest,
   CommandOutcome,
   ConversationResponse,
   CreateWorktreeRequest,
@@ -1524,6 +1527,16 @@ export async function fetchPanePlan(paneId: string, machineId = "local"): Promis
 export async function fetchPaneFiles(paneId: string, query: string, limit = 20, machineId = "local"): Promise<string[]> {
   const params = new URLSearchParams({ pane_id: paneId, q: query, limit: String(limit) });
   return (await getJson<{ files: string[] }>(machinePath(machineId, `pane/files?${params.toString()}`))).files;
+}
+
+/** GET /api/pane/opencode/models: what the pane's OpenCode session runs on, and the models OpenCode offers by provider. */
+export async function fetchOpenCodeModels(paneId: string, machineId = "local", signal?: AbortSignal): Promise<OpenCodeModelCatalog> {
+  return getJson<OpenCodeModelCatalog>(machinePath(machineId, `pane/opencode/models?pane_id=${encodeURIComponent(paneId)}`), { signal });
+}
+
+/** POST /api/pane/opencode/model: switches the pane's OpenCode session to this model and variant. */
+export async function switchOpenCodeModel(paneId: string, choice: OpenCodeModelChoice, machineId = "local"): Promise<void> {
+  await sendJson(machinePath(machineId, "pane/opencode/model"), "POST", { pane_id: paneId, ...choice } satisfies OpenCodeModelSwitchRequest);
 }
 
 /** GET /api/pane/docs: the Markdown files under the pane's folder, newest first. */

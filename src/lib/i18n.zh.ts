@@ -486,6 +486,7 @@ const BASE: Record<string, string> = {
   "{used} of {window} tokens": "{used} / {window} Token",
   "Permission mode": "权限模式",
   "Model": "模型",
+  "Provider": "提供商",
   "One model name, without spaces.": "填写一个不含空格的模型名称。",
   "Effort": "推理强度",
   "Sandbox and approvals": "沙箱与审批",
