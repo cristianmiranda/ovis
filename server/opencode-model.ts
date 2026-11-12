@@ -1,16 +1,30 @@
 /**
- * The model, provider and effort of a pane's OpenCode session, read and switched through OpenCode's
- * own service (OpenCode 2): the TUI follows a switch at once, so nothing is typed into the pane.
+ * The model, provider and effort of a pane's OpenCode session, read and switched through the OpenCode
+ * server its TUI talks to (OpenCode 2): the TUI follows a switch at once, so nothing is typed into the pane.
  */
 import type { OpenCodeModelCatalog, OpenCodeModelChoice } from "../shared/protocol.ts";
+import { paneProcessRoots } from "./conversation.ts";
 import { conflictResponse, jsonResponse } from "./http.ts";
 import { opencodeSessionId } from "./opencode.ts";
-import { listOpenCodeModels, openCodeHasSession, openCodeService, openCodeSessionModel, switchOpenCodeModel, type OpenCodeServiceConfig } from "./opencode-service.ts";
+import { openCodePrivateServer } from "./opencode-private.ts";
+import { listOpenCodeModels, openCodeHasSession, openCodeService, openCodeSessionModel, switchOpenCodeModel, verifyOpenCodeService, type OpenCodeServiceConfig } from "./opencode-service.ts";
 import { paneContext } from "./pane-context.ts";
 
 interface HeldSession { config: OpenCodeServiceConfig; sessionID: string; cwd: string }
 
 const unavailable = (message: string): Response => jsonResponse({ error: { code: "service_unavailable", message } }, 503);
+
+/**
+ * The server the pane's TUI talks to: its own private one when it was started `--standalone`, else the
+ * shared service. Only a process that answers /api/info with the pid it was found as is used.
+ */
+async function paneServer(paneId: string, stateDir: string | undefined, signal?: AbortSignal): Promise<{ config: OpenCodeServiceConfig; version: string } | null> {
+  const { pid } = await paneProcessRoots(paneId, "opencode");
+  const config = pid !== null && pid > 0 ? openCodePrivateServer(pid) : null;
+  if (!config) return openCodeService(stateDir, signal);
+  const version = await verifyOpenCodeService(config, signal);
+  return version ? { config, version } : null;
+}
 
 /** The pane's OpenCode session, only where the verified service holds it; otherwise the answer that says why. */
 async function heldSession(paneId: string, stateDir: string | undefined, signal?: AbortSignal): Promise<HeldSession | Response> {
@@ -18,7 +32,7 @@ async function heldSession(paneId: string, stateDir: string | undefined, signal?
   if (context.agent !== "opencode") return conflictResponse("not_opencode", "The pane does not run OpenCode.");
   const sessionID = opencodeSessionId(context.pane);
   if (!sessionID) return conflictResponse("no_session", "OpenCode has not named its session in this pane yet.");
-  const service = await openCodeService(stateDir, signal);
+  const service = await paneServer(paneId, stateDir, signal);
   if (!service || Number(/^(\d+)\./u.exec(service.version)?.[1] ?? 0) < 2) return unavailable("OpenCode's service is not running.");
   if (!await openCodeHasSession(service.config, sessionID, signal)) return conflictResponse("session_not_held", "OpenCode's service does not hold this pane's session.");
   return { config: service.config, sessionID, cwd: context.cwd };
