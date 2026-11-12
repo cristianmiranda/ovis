@@ -7,15 +7,18 @@ import { createServer, type Socket } from "node:net";
 import {
   forgetOpenCodeService,
   listOpenCodeCatalog,
+  listOpenCodeModels,
   listPendingQuestionForms,
   openCodeHasSession,
   openCodeService,
+  openCodeSessionModel,
   opencodeAuthHeader,
   opencodeStateDir,
   parseOpenCodeEvent,
   readOpenCodeService,
   replyOpenCodeForm,
   subscribeOpenCodeEvents,
+  switchOpenCodeModel,
   verifyOpenCodeService,
   type OpenCodeEvent,
   type OpenCodeServiceConfig,
@@ -277,6 +280,53 @@ describe("opencode-service", () => {
     });
     await withService(() => Response.json({ location: { directory: "/elsewhere" }, data: [] }), async (config) => {
       expect(await listOpenCodeCatalog(config, "/work/proj")).toBeNull();
+    });
+  });
+
+  it("lists the chat models a session may switch to, with their variants and nothing of their settings", async () => {
+    await withService((request) => {
+      const url = new URL(request.url);
+      const directory = url.searchParams.get("location[directory]");
+      if (url.pathname === "/api/provider") return Response.json({ location: { directory }, data: [{ id: "claude-agent", name: "Claude Agent", settings: { apiKey: "k" } }, { id: "nameless" }] });
+      return Response.json({ location: { directory }, data: [
+        { id: "opus", providerID: "claude-agent", name: "Opus 5.5", type: "chat", enabled: true, status: "active", headers: { "x-org": "secret" }, variants: [{ id: "low", settings: {} }, { id: "high" }, { settings: {} }] },
+        { id: "haiku", providerID: "claude-agent", name: "Haiku", enabled: false, variants: [] },
+        { id: "old", providerID: "claude-agent", name: "Old", status: "deprecated" },
+        { id: "voice", providerID: "claude-agent", name: "Voice", type: "speech" },
+        { id: "bare", providerID: "nameless" },
+        { name: "no id", providerID: "x" },
+      ] });
+    }, async (config) => {
+      const listing = await listOpenCodeModels(config, "/work/proj");
+      expect(listing).toEqual({
+        providers: [{ id: "claude-agent", name: "Claude Agent" }, { id: "nameless", name: "nameless" }],
+        models: [{ providerID: "claude-agent", id: "opus", name: "Opus 5.5", variants: ["low", "high"] }, { providerID: "nameless", id: "bare", name: "bare", variants: [] }],
+      });
+      expect(JSON.stringify(listing)).not.toContain("secret");
+    });
+    await withService(() => Response.json({ location: { directory: "/elsewhere" }, data: [] }), async (config) => {
+      expect(await listOpenCodeModels(config, "/work/proj")).toBeNull();
+    });
+  });
+
+  it("reads a session's model and switches it with the payload OpenCode takes", async () => {
+    let posted: unknown = null;
+    await withService(async (request) => {
+      const url = new URL(request.url);
+      if (request.method === "POST") {
+        expect(url.pathname).toBe("/api/session/ses_1/model");
+        posted = await request.json();
+        return new Response(null, { status: 204 });
+      }
+      return Response.json({ data: { id: "ses_1", model: { id: "opus", providerID: "claude-agent", variant: "high" } } });
+    }, async (config) => {
+      expect(await openCodeSessionModel(config, "ses_1")).toEqual({ providerID: "claude-agent", id: "opus", variant: "high" });
+      expect(await openCodeSessionModel(config, "ses_other")).toBeNull();
+      expect(await switchOpenCodeModel(config, "ses_1", { providerID: "github-copilot", id: "claude-opus-5.5" })).toEqual({ ok: true, status: 204 });
+      expect(posted).toEqual({ model: { providerID: "github-copilot", id: "claude-opus-5.5" } });
+    });
+    await withService(() => Response.json({ _tag: "InvalidRequestError" }, { status: 400 }), async (config) => {
+      expect(await switchOpenCodeModel(config, "ses_1", { providerID: "p", id: "m", variant: "v" })).toEqual({ ok: false, status: 400 });
     });
   });
 

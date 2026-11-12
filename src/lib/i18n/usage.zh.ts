@@ -25,7 +25,6 @@ export const USAGE_ZH: Record<string, string> = {
   "How do you want to sign in?": "选择登录方式",
   "Sign in to {provider}": "登录 {provider}",
   "Connect a hub": "连接中心",
-  "Provider": "提供商",
   "Connection": "连接",
   "Method": "方式",
   "Account setup": "账号设置",

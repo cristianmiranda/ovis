@@ -25,7 +25,6 @@ export const USAGE_KO: Record<string, string> = {
   "How do you want to sign in?": "어떻게 로그인할까요?",
   "Sign in to {provider}": "{provider}에 로그인",
   "Connect a hub": "허브 연결",
-  "Provider": "제공업체",
   "Connection": "연결",
   "Method": "방식",
   "Account setup": "계정 설정",

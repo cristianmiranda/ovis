@@ -1727,6 +1727,8 @@ async function route(url: URL, method: string, init: RequestInit | undefined, in
   if (path === "/api/pane/artifacts") return json({ artifacts: [] });
   // nor do they keep OMP side conversations: the side conversations chip stays away
   if (path === "/api/pane/btw") return json({ topics: [], more: false });
+  // no demo pane runs OpenCode, so none offers its model switch
+  if (path === "/api/pane/opencode/models" || path === "/api/pane/opencode/model") return error("not_opencode", "The pane does not run OpenCode.", 409);
   if (path === "/api/pane/omo-tasks") return json({ tasks: keyOfPane.get(paneId) === "flaky" ? BACKGROUND_TASKS : [], runs: [], server_time: new Date().toISOString() } satisfies OmoActivity);
   if (path === "/api/pane/background-agent") {
     if (method !== "GET") return error("method_not_allowed", "use GET", 400);

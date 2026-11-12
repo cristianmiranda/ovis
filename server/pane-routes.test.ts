@@ -656,3 +656,68 @@ it("asks the share rule about the folder an agent's commands are listed for, as 
     expect(expanded.mock.calls).toEqual([["//host/share"]]);
   } finally { expanded.mockRestore(); }
 });
+
+it("lists an OpenCode pane's models by provider and switches its session through OpenCode's service", async () => {
+  const state = join(root, "opencode-state");
+  mkdirSync(state);
+  const switched: unknown[] = [];
+  let model = { id: "opus", providerID: "claude-agent", variant: "high" };
+  const service = Bun.serve({
+    port: 0, hostname: "127.0.0.1",
+    fetch: async (request) => {
+      const url = new URL(request.url);
+      const location = { directory: url.searchParams.get("location[directory]") };
+      if (url.pathname === "/api/info") return Response.json({ pid: process.pid, version: "2.2.6" });
+      if (url.pathname === "/api/session/ses_held") return Response.json({ data: { id: "ses_held", model } });
+      if (url.pathname === "/api/session/ses_held/model" && request.method === "POST") {
+        const body = await request.json() as { model: typeof model };
+        switched.push(body);
+        model = body.model;
+        return new Response(null, { status: 204 });
+      }
+      if (url.pathname === "/api/provider") return Response.json({ location, data: [{ id: "github-copilot", name: "GitHub Copilot" }, { id: "claude-agent", name: "Claude Agent" }] });
+      if (url.pathname === "/api/model") return Response.json({ location, data: [
+        { id: "sonnet", providerID: "claude-agent", name: "Sonnet 5.5", variants: [{ id: "low" }, { id: "high" }] },
+        { id: "opus", providerID: "claude-agent", name: "Opus 5.5", variants: [{ id: "low" }, { id: "high" }] },
+        { id: "claude-opus-5.5", providerID: "github-copilot", name: "Claude Opus 5.5", variants: [] },
+      ] });
+      return Response.json({ _tag: "SessionNotFoundError" }, { status: 404 });
+    },
+  });
+  try {
+    writeFileSync(join(state, "service.json"), JSON.stringify({ url: service.url.origin, pid: process.pid, password: "fixture", version: "2.2.6" }));
+    panes = { p1: { agent: "opencode", session: "ses_held", process: [] }, p2: { agent: "opencode", session: "ses_gone", process: [] }, p3: { agent: "claude", process: [] } };
+    const read = async (pane: string) => {
+      const url = new URL(`http://x/api/pane/opencode/models?pane_id=${pane}`);
+      return (await handlePaneRequest(new Request(url), url, url.pathname, { openCodeStateDir: state }))!;
+    };
+    const send = async (body: unknown) => {
+      const url = new URL("http://x/api/pane/opencode/model");
+      return (await handlePaneRequest(new Request(url, { method: "POST", body: JSON.stringify(body), headers: { "content-type": "application/json" } }), url, url.pathname, { openCodeStateDir: state }))!;
+    };
+    expect(await (await read("p1")).json()).toEqual({
+      current: { provider: "claude-agent", model: "opus", variant: "high" },
+      providers: [
+        { id: "claude-agent", name: "Claude Agent", models: [{ id: "opus", name: "Opus 5.5", variants: ["low", "high"] }, { id: "sonnet", name: "Sonnet 5.5", variants: ["low", "high"] }] },
+        { id: "github-copilot", name: "GitHub Copilot", models: [{ id: "claude-opus-5.5", name: "Claude Opus 5.5", variants: [] }] },
+      ],
+    });
+    expect(((await (await read("p2")).json()) as { error: { code: string } }).error.code).toBe("session_not_held");
+    expect(((await (await read("p3")).json()) as { error: { code: string } }).error.code).toBe("not_opencode");
+
+    expect((await send({ pane_id: "p1", provider: "github-copilot", model: "claude-opus-5.5", variant: null })).status).toBe(200);
+    expect((await send({ pane_id: "p1", provider: "claude-agent", model: "sonnet", variant: "low" })).status).toBe(200);
+    expect(switched).toEqual([
+      { model: { providerID: "github-copilot", id: "claude-opus-5.5" } },
+      { model: { providerID: "claude-agent", id: "sonnet", variant: "low" } },
+    ]);
+    expect(((await (await read("p1")).json()) as { current: unknown }).current).toEqual({ provider: "claude-agent", model: "sonnet", variant: "low" });
+    // only what the service lists is sent on
+    expect(((await (await send({ pane_id: "p1", provider: "claude-agent", model: "sonnet", variant: "max" })).json()) as { error: { code: string } }).error.code).toBe("unknown_variant");
+    expect(((await (await send({ pane_id: "p1", provider: "openai", model: "sonnet", variant: null })).json()) as { error: { code: string } }).error.code).toBe("unknown_model");
+    expect((await send({ pane_id: "p1", provider: "claude-agent", model: "sonnet", variant: "" })).status).toBe(400);
+    expect(switched).toHaveLength(2);
+  } finally {
+    service.stop(true);
+  }
+});

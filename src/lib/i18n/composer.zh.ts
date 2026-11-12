@@ -1,6 +1,6 @@
 /**
  * Simplified Chinese for the keys only the composer files use:
- * components/Composer.tsx (with SOURCE_LABEL), components/ComposerNotices.tsx,
+ * components/Composer.tsx (with SOURCE_LABEL), components/ComposerNotices.tsx, components/OpenCodeModelDialog.tsx,
  * components/VoiceInput.tsx, components/SecretInput.tsx, components/TerminalInput.tsx,
  * components/PendingMessages.tsx, lib/compose.ts, components/PromptCard.tsx, lib/promptAnswer.ts,
  * and ../../../shared/card-text.ts (CARD_TEXT, the card text the bridge writes itself).
@@ -57,6 +57,8 @@ export const COMPOSER_ZH: Record<string, string> = {
   "Reasoning effort: {effort}": "推理强度：{effort}",
   "Reasoning effort not available": "推理强度信息不可用",
   "Reasoning {effort}": "推理 {effort}",
+  "Change model": "更改模型",
+  "Model default": "模型默认值",
   "Uploading file…": "正在上传文件…",
   "{max}-character limit · {count} over": "{max} 字上限 · 超出 {count} 字",
   "{max}-character limit": "{max} 字上限",

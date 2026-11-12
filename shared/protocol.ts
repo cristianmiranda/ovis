@@ -373,6 +373,11 @@ export type { DevicePairedEvent, DeviceRemovedEvent, PairingIntent, RelayPairing
  *         cwd matching q, for @-mentions; git ls-files when the cwd is a repo, bounded walk otherwise)
  *  GET    /api/pane/docs?pane_id=       -> PaneDocuments (the Markdown files under the pane's folder,
  *         newest first, from the same listing; read only: Files' Documents tab, shared/files.ts)
+ *  GET    /api/pane/opencode/models?pane_id= -> OpenCodeModelCatalog (the model, provider and variant
+ *         the pane's OpenCode session runs on, and the chat models OpenCode's service offers there;
+ *         409 not_opencode / no_session / session_not_held, 503 service_unavailable)
+ *  POST   /api/pane/opencode/model { pane_id, provider, model, variant } -> { ok: true } (switches the
+ *         session through OpenCode's service, which its TUI follows; 409 unknown_model / unknown_variant)
  *  GET    /api/workspace/diff/files?pane_id=&directory=&scope=&base=&head= -> RepoDiffFileList
  *         (what changed in the git repository the pane's folder, or `directory`, is inside: read
  *         only, on the PC that owns the pane. `directory` is absolute, `~/…`, or relative to the
@@ -764,6 +769,24 @@ export interface ConversationMetadata {
    * `openai-codex`): set by a model change and by each answer, absent when none is named.
    */
   provider?: string;
+}
+
+/** A model an OpenCode session runs on: its provider, the model's id there, and the variant (effort), null for the model's default. */
+export interface OpenCodeModelChoice {
+  provider: string;
+  model: string;
+  variant: string | null;
+}
+
+/** GET /api/pane/opencode/models: what the pane's OpenCode session runs on, and every chat model its service offers, by provider. */
+export interface OpenCodeModelCatalog {
+  current: OpenCodeModelChoice | null;
+  providers: { id: string; name: string; models: { id: string; name: string; variants: string[] }[] }[];
+}
+
+/** POST /api/pane/opencode/model */
+export interface OpenCodeModelSwitchRequest extends OpenCodeModelChoice {
+  pane_id: string;
 }
 
 export type { OmoTask, OmoRunNode, OmoRun, OmoActivity, PaneBackgroundAgentDetail } from "./tasks.ts";
