@@ -125,22 +125,24 @@ const LABELED_SESSIONS = 8;
 
 /**
  * Writes a terminal's named OpenCode sessions to its label when they change from what it holds, one
- * terminal's writes in order. A write that fails is tried again on the next change.
+ * terminal's writes in order. A write that fails is tried again on the next change. Once stopped, a
+ * write still queued is dropped rather than open a new line to hc after the server closed it.
  */
-function sessionLabeler(hc: Pick<HcConnection, "call">): { label: (address: string, kept: string, named: readonly string[]) => void; forget: (address: string) => void } {
+export function sessionLabeler(hc: Pick<HcConnection, "call">): { label: (address: string, kept: string, named: readonly string[]) => void; forget: (address: string) => void; stop: () => void } {
   const written = new Map<string, string>();
   const queue = new Map<string, Promise<void>>();
+  let stopped = false;
   const label = (address: string, kept: string, named: readonly string[]) => {
     const value = named.slice(-LABELED_SESSIONS).join(" ");
-    if (value === (written.get(address) ?? kept)) return;
+    if (stopped || value === (written.get(address) ?? kept)) return;
     written.set(address, value);
     const run = (queue.get(address) ?? Promise.resolve())
-      .then(() => hc.call("terminal.label", { terminal: address, labels: { [OPENCODE_SESSIONS_LABEL]: value } }))
+      .then(async () => { if (!stopped) await hc.call("terminal.label", { terminal: address, labels: { [OPENCODE_SESSIONS_LABEL]: value } }); })
       .then(() => {}, () => { if (written.get(address) === value) written.delete(address); });
     queue.set(address, run);
     void run.then(() => { if (queue.get(address) === run) queue.delete(address); });
   };
-  return { label, forget: (address) => written.delete(address) };
+  return { label, forget: (address) => written.delete(address), stop: () => { stopped = true; } };
 }
 
 export async function startHerdrCoreAdapter(hc: HcConnection, socketPath: string, observeSeen?: SeenObserver, options: AdapterOptions = {}): Promise<HerdrCoreAdapter> {
@@ -239,6 +241,7 @@ export async function startHerdrCoreAdapter(hc: HcConnection, socketPath: string
   return {
     socketPath,
     stop: () => {
+      sessionLabels.stop();
       listener.stop(true);
       rmSync(socketPath, { force: true });
     },
