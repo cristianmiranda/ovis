@@ -706,6 +706,17 @@ it("asks for a fresh snapshot when a report's kind, message or progress changes,
     expect((await sessions())[2]).toBeNull();
   });
 
+  it("keeps in the label every session the pane can still be bound to, not only the newest", async () => {
+    // regression: the label kept the newest 8 of the 32 sessions a terminal's candidates hold, so a pane still showing an
+    // older one bound to it until Ovis restarted, and showed "Conversation unavailable" after
+    const written: Record<string, unknown>[] = [];
+    const labels = sessionLabeler({ call: (async (_method: string, params: Record<string, unknown>) => { written.push(params); }) as unknown as HcConnection["call"] });
+    const named = Array.from({ length: 9 }, (_, index) => `ses_${index}`);
+    labels.label("t1", "", named);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(written).toEqual([{ terminal: "t1", labels: { "ovis.opencode": named.join(" ") } }]);
+  });
+
   it("drops an OpenCode label write still queued once stopped, so none opens a line to hc after the server closed it", async () => {
     const written: unknown[] = [];
     const first = Promise.withResolvers<void>();

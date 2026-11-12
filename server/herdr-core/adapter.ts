@@ -119,9 +119,11 @@ export interface AdapterOptions {
 
 /** The sessions a terminal named that it keeps as candidates, the newest last. */
 const NAMED_SESSIONS = 32;
-/** The newest of a terminal's named OpenCode sessions, space separated, kept on it through a restart of Ovis (docs/herdr-core-layout.md). */
+/**
+ * A terminal's named OpenCode sessions, space separated, kept on it through a restart of Ovis (docs/herdr-core-layout.md):
+ * all of its candidates, about 1 KB at most, since the pane may still show any of them, not only the newest.
+ */
 export const OPENCODE_SESSIONS_LABEL = "ovis.opencode";
-const LABELED_SESSIONS = 8;
 
 /**
  * Writes a terminal's named OpenCode sessions to its label when they change from what it holds, one
@@ -133,7 +135,7 @@ export function sessionLabeler(hc: Pick<HcConnection, "call">): { label: (addres
   const queue = new Map<string, Promise<void>>();
   let stopped = false;
   const label = (address: string, kept: string, named: readonly string[]) => {
-    const value = named.slice(-LABELED_SESSIONS).join(" ");
+    const value = named.join(" ");
     if (stopped || value === (written.get(address) ?? kept)) return;
     written.set(address, value);
     const run = (queue.get(address) ?? Promise.resolve())
