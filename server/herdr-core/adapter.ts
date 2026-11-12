@@ -126,6 +126,16 @@ const NAMED_SESSIONS = 32;
 export const OPENCODE_SESSIONS_LABEL = "ovis.opencode";
 
 /**
+ * The session an OpenCode plugin of the user's own writes on its terminal as `resume.agent=opencode`
+ * and `resume.session=<id>` whenever the TUI opens one, whether it works or rests: a candidate even
+ * when hc never reported it pending while this server ran. The title must still name it alone.
+ */
+function resumedSession(labels: Readonly<Record<string, string>> | undefined): string | null {
+  const session = labels?.["resume.session"];
+  return labels?.["resume.agent"] === "opencode" && session && /^ses_[A-Za-z0-9]{1,64}$/.test(session) ? session : null;
+}
+
+/**
  * Writes a terminal's named OpenCode sessions to its label when they change from what it holds, one
  * terminal's writes in order. A write that fails is tried again on the next change. Once stopped, a
  * write still queued is dropped rather than open a new line to hc after the server closed it.
@@ -190,7 +200,9 @@ export async function startHerdrCoreAdapter(hc: HcConnection, socketPath: string
   };
   // the sessions a terminal named and those whose title it shows, decided in agent-identity.ts `paneSession`
   const sessionOf: SessionOf = (terminal) => {
-    const named = noteSession(terminal.address, terminal.status, terminal.records, terminal.labels);
+    const noted = noteSession(terminal.address, terminal.status, terminal.records, terminal.labels);
+    const resumed = resumedSession(terminal.labels);
+    const named = resumed === null || noted.includes(resumed) ? noted : [...noted, resumed];
     const titled = named.length === 0 || !terminal.title || !options.opencodeTitled ? [] : options.opencodeTitled(terminal.title);
     return paneSession(agentOfStatus(terminal.status), { named, titled });
   };

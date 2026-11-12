@@ -706,6 +706,18 @@ it("asks for a fresh snapshot when a report's kind, message or progress changes,
     expect((await sessions())[2]).toBeNull();
   });
 
+  it("binds a resting OpenCode pane it never saw working to the session its resume label names, when the title names it", async () => {
+    const opencode = (state: string) => ({ app: "opencode", state });
+    const reported = (value: string) => ({ agent: "opencode", source: "herdr:opencode", kind: "id", value });
+    const resume = (session: string) => ({ "resume.agent": "opencode", "resume.session": session });
+    const t1 = terminal("t1", { title: "OC | first", status: opencode("idle"), labels: resume("ses_first") });
+    const t2 = terminal("t2", { title: "OC | second", status: opencode("idle"), labels: resume("ses_first") });
+    const t3 = terminal("t3", { title: "OC | third", status: opencode("idle"), labels: { "resume.agent": "claude", "resume.session": "ses_third" } });
+    const { socket } = await setup([t1, t2, t3], { "terminal.label": (params) => [t1, t2, t3].find((entry) => entry.address === params["terminal"])! });
+    const sessions = async () => (await sessionSnapshot(socket)).panes.map((pane) => pane.agent_session ?? null);
+    expect(await sessions()).toEqual([reported("ses_first"), null, null]);
+  });
+
   it("keeps in the label every session the pane can still be bound to, not only the newest", async () => {
     // regression: the label kept the newest 8 of the 32 sessions a terminal's candidates hold, so a pane still showing an
     // older one bound to it until Ovis restarted, and showed "Conversation unavailable" after
