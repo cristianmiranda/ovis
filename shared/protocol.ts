@@ -1324,8 +1324,15 @@ export type ClientMessage =
    * `agent_only` (feature "agent-only"): the message is for an agent alone (a chat message carrying comments on
    * a reply, #511, whose `> quote` lines a shell would read as redirects). The server refuses it with
    * agent_not_ready, typing nothing, when no agent is in front of the pane as it would type it; a queued or held
-   * one keeps the rule until it is typed. Not with `typed`; anything but true is invalid_delivery. */
-  | { type: "submit"; id: number; pane_id: string; text: string; payload: string; typed?: boolean; delivery?: "immediate" | "queue" | "hold"; clear_draft?: string; send_anyway?: true; resend_id?: string; resend_generation?: number; agent_only?: true }
+   * one keeps the rule until it is typed. Not with `typed`; anything but true is invalid_delivery.
+   * `receipt` (feature "submit-receipt"): an immediate chat message's random UUID. Once the bridge typed the message,
+   * a later connection of the same device may ask with `submit-receipts` whether it was typed, so a page whose
+   * connection dropped before the submit-result can clear the sent text from its box. Never sends anything. Not with
+   * `delivery` queue or hold, `typed` or `resend_id`. */
+  | { type: "submit"; id: number; pane_id: string; text: string; payload: string; typed?: boolean; delivery?: "immediate" | "queue" | "hold"; clear_draft?: string; send_anyway?: true; resend_id?: string; resend_generation?: number; agent_only?: true; receipt?: string }
+  /** which of these submits' `receipt`s the bridge typed into that pane (feature "submit-receipt"), for this device,
+   * within the last 30 minutes: answered with a submit-receipts-result of the same id. At most 32. */
+  | { type: "submit-receipts"; id: number; receipts: { pane_id: string; receipt: string }[] }
   /** `withdrawal_only`: Edit's discard may withdraw only queued/held input; uncertain text stays
    * with its owner and returns pending_uncertain, rather than being dismissed. Older servers ignore
    * this optional field and retain their existing discard behaviour, without this protection.
@@ -1423,7 +1430,7 @@ export interface ClientConnectionTrace {
  * table P10, P15, T57). Only then may the server send `device-notice` and `device-notice-replay`, and only then does a
  * client send `notice-seen` and `notice-answer`.
  */
-export type ServerFeature = typeof ACCOUNT_OPENS_ALL_CAPABILITY | "submit" | "pending-input" | "pending-hold" | "secret-input" | "input-ready" | "take-over" | "watch" | "conversation-watch" | "ping" | "terminal-insert" | "agent-only" | "machine-events" | "terminal-history" | "terminal-modes" | "input-receipt" | "conversation-search" | "conversation-watch-detached" | "prompt-watch" | "secret-prompts-2" | "secret-prompts-3";
+export type ServerFeature = typeof ACCOUNT_OPENS_ALL_CAPABILITY | "submit" | "pending-input" | "pending-hold" | "secret-input" | "input-ready" | "take-over" | "watch" | "conversation-watch" | "ping" | "terminal-insert" | "agent-only" | "machine-events" | "terminal-history" | "terminal-modes" | "input-receipt" | "conversation-search" | "conversation-watch-detached" | "prompt-watch" | "secret-prompts-2" | "secret-prompts-3" | "submit-receipt";
 
 export type ServerMessage =
   | { type: "machine-event"; event: MachineEvent }
@@ -1472,6 +1479,9 @@ export type ServerMessage =
    * the message's turn is written after it on that clock. An older server never sends it. */
   | { type: "submit-result"; id: number; pane_id: string; ok: boolean; pending?: PendingMessage; typed_now?: true; sending_at?: string; code?: string; message?: string; draft?: string; box?: string }
   | { type: "pending-result"; id: number; pane_id: string; pending_id: string; ok: boolean; code?: string; message?: string }
+  /** `typed`: the receipts of the asking submit-receipts the bridge typed. Any other was not typed, or not yet, or is
+   * not known: the page keeps its text. */
+  | { type: "submit-receipts-result"; id: number; typed: string[] }
   /** ok once herdr accepted the inserted bytes (`pane.send_text` answered), never that the program
    * took or ran them; a refusal names why and nothing was typed, except `insert_failed`, whose bytes
    * may or may not have arrived. Older bridges never send it. */

@@ -18,6 +18,7 @@ const FEATURES_WAIT_MS = 2000;
  * message the client gave up on is never submitted later.
  */
 const SUBMIT_TIMEOUT_MS = 90_000;
+const RECEIPT_QUERY_TIMEOUT_MS = 15_000;
 /**
  * A connect attempt that has neither opened nor failed by now is given up and retried: a phone
  * that wakes on a dead network (or a tunnel that drops the handshake) can leave a socket in
@@ -274,6 +275,7 @@ export class HerdrSocket {
   private featuresTrusted: (frame: Extract<ServerMessage, { type: "features" }>) => boolean = () => false;
   private nextSubmit = 1;
   private readonly submits = new Map<number, (result: SubmitResult) => void>();
+  private readonly receiptQueries = new Map<number, (typed: string[] | null) => void>();
   /** Receipts match the operation and captured target on this connection, never an ID alone. */
   private readonly requests = new Map<number, { type: "submit" | "pending-action" | "secret" | "insert"; paneId: string; queued?: boolean; pendingId?: string }>();
 
@@ -518,6 +520,11 @@ export class HerdrSocket {
           this.resolveRequest(pending.request_id, { ok: true, pending });
         }
       }
+      if (message.type === "submit-receipts-result") {
+        const settle = this.receiptQueries.get(message.id);
+        this.receiptQueries.delete(message.id);
+        settle?.(Array.isArray(message.typed) ? message.typed.filter((receipt) => typeof receipt === "string") : null);
+      }
       if (message.type === "pending-result" && this.matchesRequest(message.id, "pending-action", message.pane_id, message.pending_id)) {
         this.resolveRequest(message.id, message.ok ? { ok: true } : { ok: false, code: message.code ?? "pending_failed", message: message.message ?? "the pending message was not changed" });
       }
@@ -616,6 +623,8 @@ export class HerdrSocket {
     for (const handler of this.disconnectHandlers) handler();
     this.markFeatures();
     this.settleSubmits(DISCONNECTED);
+    for (const settle of this.receiptQueries.values()) settle(null);
+    this.receiptQueries.clear();
   }
 
   private stopOutput(): void {
@@ -1205,7 +1214,8 @@ export class HerdrSocket {
    * `clearDraft`: an immediate send over the draft an input_draft refusal named (ClientMessage `clear_draft`)
    * `sendAnyway`: an immediate send after a refusal that showed the box (ClientMessage `send_anyway`)
    * `holdOnly`: a hold that must never go on its own (the composer's Alt+Enter): refused, not queued, where the bridge cannot hold */
-  submit(paneId: string, text: string, payload: string, typed = false, delivery: SubmitDelivery = "immediate", clearDraft?: string, sendAnyway = false, resendId?: string, generation?: number, agentOnly = false, holdOnly = false): Promise<SubmitResult> | null {
+  /** `receipt`: a random UUID an immediate message carries to a bridge listing "submit-receipt", for typedReceipts to ask about later */
+  submit(paneId: string, text: string, payload: string, typed = false, delivery: SubmitDelivery = "immediate", clearDraft?: string, sendAnyway = false, resendId?: string, generation?: number, agentOnly = false, holdOnly = false, receipt?: string): Promise<SubmitResult> | null {
     const socket = this.socket;
     if (!this.connected || socket === null || this.mode === "observe") return null;
     if (resendId !== undefined && sendAnyway) return Promise.resolve({ ok: false, code: "invalid_delivery", message: "Use a held-copy resend id only for an immediate chat message" });
@@ -1231,7 +1241,27 @@ export class HerdrSocket {
       }
       const id = this.nextSubmit++;
       return this.submitRequest({ type: "submit", id, pane_id: paneId, text, payload, ...(typed ? { typed: true } : {}), ...(delivery !== "immediate" ? { delivery } : {}),
-        ...(clearDraft !== undefined ? { clear_draft: clearDraft } : {}), ...(sendAnyway ? { send_anyway: true as const } : {}), ...(resendId !== undefined ? { resend_id: resendId, resend_generation: generation ?? 0 } : {}), ...(agentOnly ? { agent_only: true as const } : {}) });
+        ...(clearDraft !== undefined ? { clear_draft: clearDraft } : {}), ...(sendAnyway ? { send_anyway: true as const } : {}), ...(resendId !== undefined ? { resend_id: resendId, resend_generation: generation ?? 0 } : {}), ...(agentOnly ? { agent_only: true as const } : {}),
+        ...(receipt !== undefined && delivery === "immediate" && !typed && resendId === undefined && this.features.has("submit-receipt") ? { receipt } : {}) });
+    })();
+  }
+
+  /**
+   * Which of these immediate messages' receipts the bridge typed (feature "submit-receipt"), asked by a page whose
+   * connection dropped before their submit-result. null when the bridge cannot say: the page keeps their text.
+   */
+  typedReceipts(receipts: readonly { pane_id: string; receipt: string }[]): Promise<string[] | null> {
+    if (!this.connected || this.socket === null || receipts.length === 0) return Promise.resolve(null);
+    return (async (): Promise<string[] | null> => {
+      await Promise.race([this.featuresSeen, new Promise((resolve) => window.setTimeout(resolve, FEATURES_WAIT_MS))]);
+      if (!this.connected || !this.featuresKnown || !this.features.has("submit-receipt")) return null;
+      const id = this.nextSubmit++;
+      return new Promise<string[] | null>((resolve) => {
+        this.receiptQueries.set(id, resolve);
+        window.setTimeout(() => { if (this.receiptQueries.delete(id)) resolve(null); }, RECEIPT_QUERY_TIMEOUT_MS);
+        try { this.rawSend({ type: "submit-receipts", id, receipts: receipts.slice(0, 32) }); }
+        catch { this.receiptQueries.delete(id); resolve(null); }
+      });
     })();
   }
 

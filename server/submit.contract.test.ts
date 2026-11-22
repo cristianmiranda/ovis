@@ -448,6 +448,25 @@ describe("WebSocket submit", () => {
     }
   });
 
+  it("tells a later connection that a message with its receipt was typed, so a page that lost the result can clear its box", async () => {
+    const receipt = "6f1c2a3b-4d5e-4f60-8a7b-9c0d1e2f3a4b";
+    const first = await Socket.connect();
+    try {
+      expect(first.seen.find((message) => message.type === "snapshot")?.features).toContain("submit-receipt");
+      first.send({ type: "submit", id: 1, pane_id: shell.pane, text: "receipt", payload: paste("receipt"), receipt });
+      expect(await first.result(1)).toMatchObject({ ok: true });
+    } finally {
+      first.close();
+    }
+    const later = await Socket.connect();
+    try {
+      later.send({ type: "submit-receipts", id: 2, receipts: [{ pane_id: shell.pane, receipt }, { pane_id: shell.pane, receipt: "0a1b2c3d-4e5f-4a6b-9c7d-8e9f0a1b2c3d" }] });
+      expect(await later.waitFor((message) => message.type === "submit-receipts-result" && message.id === 2)).toMatchObject({ typed: [receipt] });
+    } finally {
+      later.close();
+    }
+  }, 30_000);
+
   it("types the payload into a pane without an agent, then its own Enter SUBMIT_DELAY_MS later, and says so", async () => {
     const socket = await Socket.connect();
     try {

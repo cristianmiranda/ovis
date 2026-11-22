@@ -3306,6 +3306,36 @@ it("refuses an agent-only message on a bridge without agent-only, and names it w
   }
 });
 
+it("sends an immediate message's receipt only to a bridge that keeps it, and asks that bridge which receipts it typed", async () => {
+  const receipt = "6f1c2a3b-4d5e-4f60-8a7b-9c0d1e2f3a4b";
+  for (const features of [["submit"], ["submit", "submit-receipt"]]) {
+    const client = new HerdrSocket("ws://test/ws");
+    client.connect();
+    const socket = FakeSocket.last;
+    socket.open();
+    socket.receive(snapshot(features));
+    try {
+      const next = socket.nextSubmission();
+      void client.submit("w1:p1", "hello", "hello", false, "immediate", undefined, false, undefined, undefined, false, false, receipt);
+      const sent = await next;
+      const asked = client.typedReceipts([{ pane_id: "w1:p1", receipt }]);
+      if (!features.includes("submit-receipt")) {
+        expect(sent).not.toHaveProperty("receipt");
+        expect(await asked).toBeNull();
+        continue;
+      }
+      expect(sent).toMatchObject({ type: "submit", receipt });
+      for (let turn = 0; turn < 10 && !socket.sent.some((frame) => frame.type === "submit-receipts"); turn++) await Promise.resolve();
+      const query = socket.sent.find((frame) => frame.type === "submit-receipts")!;
+      expect(query).toMatchObject({ receipts: [{ pane_id: "w1:p1", receipt }] });
+      socket.receive({ type: "submit-receipts-result", id: query.id, typed: [receipt] });
+      expect(await asked).toEqual([receipt]);
+    } finally {
+      client.close();
+    }
+  }
+});
+
 it("runs on a transport's socket where the page has no global WebSocket", () => {
   setTransport({ ...nativeTransport, kind: "relay", openSocket: (url) => new FakeSocket(url) as unknown as WebSocketLike });
   globals.WebSocket = undefined;

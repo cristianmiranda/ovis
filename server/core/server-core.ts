@@ -108,6 +108,7 @@ export function createCore({ options, devices, preferences, usage, usageLogin, b
       insert: inputFrames.insert,
       submit: pendingFrames.submit,
       "pending-action": pendingFrames["pending-action"],
+      "submit-receipts": pendingFrames["submit-receipts"],
     },
   });
   // a journal entry goes at once to each connected row it concerns (P10); one not connected hears it at its next connect

@@ -500,6 +500,7 @@ describe("demo transport", () => {
   const DEMO_IGNORES: Record<string, string> = {
     "pty-ack": "the demo has no output flow control to release; its switch's default branch drops it",
     "prompt-watch": "the demo does not advertise the prompt-watch feature, and the browser never sends it; its switch's default branch drops it",
+    "submit-receipts": "the demo does not advertise the submit-receipt feature, and the browser never sends it; its switch's default branch drops it",
   };
 
   it("answers every /api route the server handles", () => {

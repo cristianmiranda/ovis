@@ -9,7 +9,8 @@ import { matchHerdrWidths } from "./terminalWidths.ts";
 import { paneStorageId } from "../../shared/machines.ts";
 import { PendingMessageStore, pendingMessages } from "./pendingMessages.ts";
 import { paneLifetimes } from "./paneLifetime.ts";
-import { composerDrafts } from "./composerDraft.ts";
+import { composerDraftKey, composerDrafts } from "./composerDraft.ts";
+import { unconfirmedSends } from "./unconfirmedSends.ts";
 import { useComposerSends, type ComposerSendsDeps } from "./useComposerSends.ts";
 import type { HerdrSocket, SubmitDelivery, SubmitResult } from "./ws.ts";
 import { currentWaitingSends, forgetWaitingSends, settleWaitingSends, waitingKey } from "./sentWaiting.ts";
@@ -550,4 +551,27 @@ it.each([
   });
   await actions.composerSend("next step");
   expect(deliveries).toEqual([expected]);
+});
+
+it("keeps an immediate message's receipt only while its result is unknown: a dropped connection or a timeout", async () => {
+  const saved = savedStorage();
+  try {
+    for (const [answer, kept] of [
+      [{ ok: false, code: "disconnected", message: "dropped" }, true],
+      [{ ok: false, code: "timeout", message: "late" }, true],
+      [{ ok: true }, false],
+      [{ ok: false, code: "not_transmitted", message: "never left" }, false],
+    ] as const) {
+      const pane = `receipt-${answer.ok ? "ok" : answer.code}`;
+      const receipts: (string | undefined)[] = [];
+      const actions = sends(pane, answer, [], {
+        agent: "codex", agentStatus: "idle", t: (key) => key,
+        submitComposerMessage: (_text, _delivery, _clear, _anyway, _id, _generation, _agentOnly, _hold, receipt) => { receipts.push(receipt); return Promise.resolve(answer); },
+      });
+      await actions.composerSend("hello");
+      const key = composerDraftKey(paneStorageId("local", pane));
+      expect(receipts).toHaveLength(1);
+      expect(unconfirmedSends.read(key).map((item) => [item.receipt, item.pane_id, item.sent])).toEqual(kept ? [[receipts[0]!, pane, "hello"]] : []);
+    }
+  } finally { saved.restore(); }
 });

@@ -21,6 +21,7 @@ import { skillSyntax } from "../../shared/skill-syntax.ts";
 import { labelledAgent } from "../../shared/supported-agents.ts";
 import { useMachineApi, useMachineId } from "../lib/machineContext.tsx";
 import { composerDraftKey, composerDrafts, underSendLock } from "../lib/composerDraft.ts";
+import { unconfirmedSends } from "../lib/unconfirmedSends.ts";
 import { tally, usageCounters, useShownCount } from "../lib/usageCounters.ts";
 import { onQuoted } from "../lib/chatQuote.ts";
 import { commentsWait, holdsQuoteLine, messageWithComments, replyComments, replyCommentsKey, type ReplyComment } from "../lib/replyComments.ts";
@@ -257,6 +258,8 @@ export function Composer({
   const wasConnected = useRef(connected);
   if (wasConnected.current !== connected) { if (!connected) drops.current++; wasConnected.current = connected; }
   const setText = useCallback((value: string | ((previous: string) => string)) => composerDrafts.set(draftKey, value), [draftKey]);
+  // the bridge typed a message whose result this page never got: its "not confirmed" note no longer holds
+  useEffect(() => unconfirmedSends.onCleared(draftKey, () => setNote(null)), [draftKey]);
   const commentsKey = replyCommentsKey(paneStorageId(machineId, paneId));
   const comments = useReplyComments(commentsKey);
   const commentsHeld = comments.length > 0 && commentsWait(text, answerHint !== null);

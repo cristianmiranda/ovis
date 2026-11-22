@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, type MutableRefObject } from "react";
+import { useCallback, useEffect, useMemo, useRef, type MutableRefObject } from "react";
 import { ApiError } from "./api.ts";
 import { answerFromText, answerRefusal, needsConfirmation, type TypedAnswer } from "./promptAnswer.ts";
 import { composerDelivery, pendingActionUncertain, submitNote, submitNotTyped, submitRefusal, type DraftRefusal } from "./compose.ts";
@@ -6,7 +6,8 @@ import type { PaneSubmitRetention } from "./paneSubmitRetention.ts";
 import { pendingMessages, UNCONFIRMED_SEND } from "./pendingMessages.ts";
 import { paneStorageId } from "../../shared/machines.ts";
 import { rememberWaitingSend, stampedBaseline, waitingBaseline, waitingKey } from "./sentWaiting.ts";
-import { composerDrafts } from "./composerDraft.ts";
+import { composerDraftKey, composerDrafts } from "./composerDraft.ts";
+import { unconfirmedSends } from "./unconfirmedSends.ts";
 import type { AgentStatus, InteractivePrompt, PromptAnswer } from "../../shared/protocol.ts";
 import type { HerdrSocket, SubmitDelivery, SubmitResult } from "./ws.ts";
 import { plainError } from "./paneTerminalShared.ts";
@@ -19,6 +20,7 @@ export interface ComposerSendsDeps {
   answerPanePrompt: (answer: { pane_id: string; prompt_id: string }) => Promise<unknown>;
   answering: InteractivePrompt | null;
   answerPending: boolean;
+  connected: boolean;
   draftHeldForRef: MutableRefObject<string | null>;
   ended: boolean;
   heldByOpenQueue: boolean;
@@ -46,13 +48,13 @@ export interface ComposerSendsDeps {
   stillOpenNote: (open: { pane: string; agent: string; command: string; named: boolean; history: string | undefined }) => string;
   stillOpenNotedRef: MutableRefObject<boolean>;
   stillOpenRef: MutableRefObject<{ pane: string; agent: string; command: string; named: boolean; history: string | undefined } | null>;
-  submitComposerMessage: (text: string, delivery: SubmitDelivery, clearDraft?: string, sendAnyway?: boolean, pendingId?: string, resendGeneration?: number, agentOnly?: boolean, holdOnly?: boolean) => Promise<SubmitResult> | null;
+  submitComposerMessage: (text: string, delivery: SubmitDelivery, clearDraft?: string, sendAnyway?: boolean, pendingId?: string, resendGeneration?: number, agentOnly?: boolean, holdOnly?: boolean, receipt?: string) => Promise<SubmitResult> | null;
   submitRetention: PaneSubmitRetention | null;
   t: Translate;
 }
 
 export function useComposerSends(deps: ComposerSendsDeps) {
-  const { agent, agentStatus, answerPanePrompt, answering, answerPending, chatNavigation, draftHeldForRef, ended, heldByOpenQueue, heldRef, inputAtRest, inputRowNow, knownOutcomes, observeRef, paneId, paneRef, pendingAnswer, pendingScopeRef, queueOwner, queueStore, machineId, secretRef, sessionRef, setChatLocalSend, setPendingAnswer, setPromptRefresh, settings, showSentCommand, socketRef, stillOpenNote, stillOpenNotedRef, stillOpenRef, submitComposerMessage, submitRetention, t } = deps;
+  const { agent, agentStatus, answerPanePrompt, answering, answerPending, chatNavigation, connected, draftHeldForRef, ended, heldByOpenQueue, heldRef, inputAtRest, inputRowNow, knownOutcomes, observeRef, paneId, paneRef, pendingAnswer, pendingScopeRef, queueOwner, queueStore, machineId, secretRef, sessionRef, setChatLocalSend, setPendingAnswer, setPromptRefresh, settings, showSentCommand, socketRef, stillOpenNote, stillOpenNotedRef, stillOpenRef, submitComposerMessage, submitRetention, t } = deps;
 
   const sendAnswer = useCallback((pane: string, prompt: InteractivePrompt, choice: TypedAnswer): Promise<boolean | string> => {
     setPendingAnswer(null);
@@ -132,8 +134,13 @@ export function useComposerSends(deps: ComposerSendsDeps) {
       const sentAt = Date.now();
       const sentAfter = pane === null ? null : waitingBaseline(waitingKey(machineId, pane));
       // a PC that cannot hold refuses a hold rather than queuing it to go on its own (HerdrSocket `holdOnly`)
-      const result = submitComposerMessage(text, delivery, delivery === "immediate" ? clearDraft : undefined, sendAnyway, undefined, undefined, agentOnly, hold);
+      // a message whose result never comes (the connection dropped, or this page froze or closed) is asked about later
+      const draftKey = pane === null ? null : composerDraftKey(paneStorageId(machineId, pane));
+      const receipt = draftKey !== null && delivery === "immediate" ? unconfirmedSends.begin(draftKey, pane!, text) : undefined;
+      const result = submitComposerMessage(text, delivery, delivery === "immediate" ? clearDraft : undefined, sendAnyway, undefined, undefined, agentOnly, hold, receipt);
+      if (result === null && receipt !== undefined) unconfirmedSends.end(draftKey!, receipt);
       return result === null ? false : result.then((answer) => {
+        if (receipt !== undefined && (answer.ok || (answer.code !== "disconnected" && answer.code !== "timeout"))) unconfirmedSends.end(draftKey!, receipt);
         // Neither a dropped connection nor a cleared old draft proves this message was typed.
         // Without a receipt, leave the retryable composer text and report the uncertainty.
         if (!answer.ok) return submitRefusal(answer.code, answer.message, answer.draft, answer.box, agent);
@@ -154,6 +161,16 @@ export function useComposerSends(deps: ComposerSendsDeps) {
     },
     [agent, agentStatus, answering, answerPending, heldByOpenQueue, sendAnswer, submitComposerMessage, queueStore, machineId, settings.autoSendQueued, showSentCommand, inputAtRest, inputRowNow, stillOpenNote],
   );
+
+  // what an earlier connection or page sent without a result: the bridge says which it typed, and the box drops those
+  useEffect(() => {
+    if (!connected || paneId === null) return;
+    const draftKey = composerDraftKey(paneStorageId(machineId, paneId));
+    const waiting = unconfirmedSends.read(draftKey);
+    if (waiting.length === 0) return;
+    void socketRef.current?.typedReceipts(waiting.map(({ pane_id, receipt }) => ({ pane_id, receipt })))
+      .then((typed) => { if (typed !== null) unconfirmedSends.settle(draftKey, typed); });
+  }, [connected, paneId, machineId, socketRef]);
 
   const actOnPending = useCallback(async (id: string, action: "steer" | "discard" | "edit" | "dismiss"): Promise<void> => {
     const perform = async (): Promise<void> => {

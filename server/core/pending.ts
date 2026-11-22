@@ -32,6 +32,7 @@ import { codexOwnScreenOpen, CODEX_OWN_SCREEN_MESSAGE } from "../dialogs/codex.t
 import { secretPrompt } from "../../shared/secret-prompt.ts";
 import { PendingInputs, samePendingIdentity, type FirstMessageAsk, type PendingIdentity, type PendingRecord } from "../pending-input.ts";
 import { NO_AGENT_MESSAGE, PASTED_NOT_SENT_MESSAGE, submitNotTyped } from "../../shared/submit-outcome.ts";
+import { RECEIPT_RESUME_ID } from "../../shared/receipt-resume.ts";
 import { processStartedAtAsync } from "../process-start.ts";
 import { agentProcessInFront } from "../agent-process.ts";
 import { agentProcesses } from "../conversation.ts";
@@ -220,6 +221,18 @@ export function createPendingDelivery({ options, clients, attachments, sight, se
    */
   const endedPanes = new Map<string, number>();
   const receiptKeys = new WeakMap<Client, Map<string, string>>();
+  // An immediate chat message's receipt once typed, for a later connection of the same device to ask about (submit-receipts)
+  const TYPED_RECEIPT_MS = 30 * 60 * 1000, TYPED_RECEIPT_LIMIT = 1024;
+  const typedReceipts = new Map<string, { paneId: string; device: string | null; at: number }>();
+  const keepTypedReceipt = (client: Client, paneId: string, receipt: string | undefined): void => {
+    if (receipt === undefined) return;
+    typedReceipts.delete(receipt);
+    typedReceipts.set(receipt, { paneId, device: client.data.deviceId ?? null, at: elapsed() });
+    for (const [key, entry] of typedReceipts) {
+      if (typedReceipts.size <= TYPED_RECEIPT_LIMIT && entry.at >= elapsed() - TYPED_RECEIPT_MS) break;
+      typedReceipts.delete(key);
+    }
+  };
   const resumeKey = (client: Client, paneId: string): string | undefined => {
     const id = client.data.attached.get(paneId)?.receiptResumeId;
     return id ? JSON.stringify([client.data.deviceId ?? null, id]) : undefined;
@@ -1388,6 +1401,11 @@ export function createPendingDelivery({ options, clients, attachments, sight, se
         result(false, "invalid_delivery", "A resend generation must be a nonnegative integer with a held-copy id");
         return;
       }
+      if (message.receipt !== undefined && (typeof message.receipt !== "string" || !RECEIPT_RESUME_ID.test(message.receipt)
+        || waits || message.typed === true || message.resend_id !== undefined)) {
+        result(false, "invalid_delivery", "Use a receipt only for an immediate chat message");
+        return;
+      }
       // #511: a chat message for an agent alone (comments on a reply, whose `> quote` lines a shell would run as redirects)
       if (message.agent_only !== undefined && (message.agent_only !== true || message.typed === true)) {
         result(false, "invalid_delivery", "Only a chat message can be for an agent alone, with agent_only true");
@@ -1579,6 +1597,7 @@ export function createPendingDelivery({ options, clients, attachments, sight, se
           return;
         }
         if (message.clear_draft !== undefined || message.send_anyway) draftConfirmations.get(client)?.delete(message.pane_id);
+        if (!behind) keepTypedReceipt(client, message.pane_id, message.receipt);
         result(true, undefined, undefined, behind, undefined, undefined, false, sendingAt);
         if (behind) drainPending(message.pane_id);
       } catch (error) {
@@ -1593,6 +1612,21 @@ export function createPendingDelivery({ options, clients, attachments, sight, se
           error instanceof InputDraftError && error.identity && error.box !== null ? shownInputBox(error.box) : null);
       }
       return;
+    },
+    "submit-receipts"(client: Client, message: Frame<"submit-receipts">): void {
+      if (!Number.isSafeInteger(message.id) || !Array.isArray(message.receipts) || message.receipts.length > 32) {
+        send(client, { type: "error", code: "invalid_submit_receipts", message: "id must be an integer, and receipts a list of at most 32" });
+        return;
+      }
+      const device = client.data.deviceId ?? null, cutoff = elapsed() - TYPED_RECEIPT_MS;
+      const typed = message.receipts.flatMap((asked: unknown) => {
+        if (typeof asked !== "object" || asked === null) return [];
+        const { pane_id: paneId, receipt } = asked as { pane_id?: unknown; receipt?: unknown };
+        if (typeof receipt !== "string") return [];
+        const entry = typedReceipts.get(receipt);
+        return entry && entry.paneId === paneId && entry.device === device && entry.at >= cutoff ? [receipt] : [];
+      });
+      send(client, { type: "submit-receipts-result", id: message.id, typed });
     },
     async "pending-action"(client: Client, message: Frame<"pending-action">): Promise<void> {
       const known = ({ unannounced: _, ...reply }: SubmitReply): SubmitReply => reply.code === LAUNCH_GONE.code && message.launch_ended !== true ? { ...reply, code: TARGET_CHANGED.code } : reply;
