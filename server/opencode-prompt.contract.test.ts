@@ -95,7 +95,7 @@ afterAll(async () => {
   rmSync(root, { recursive: true, force: true });
 });
 
-async function setupOpencodePane(sessionID: string, label: string): Promise<string> {
+async function setupOpencodePane(sessionID: string, label: string, command = fakeOpencode): Promise<string> {
   const created = await workspaceCreate({ cwd: root, label: `test-opencode-${label}` });
   workspaces.push(created.workspace.workspace_id);
   const paneId = created.root_pane.pane_id;
@@ -110,7 +110,7 @@ async function setupOpencodePane(sessionID: string, label: string): Promise<stri
   const timeout = setTimeout(() => detected.reject(new Error("test opencode did not start")), 10_000);
   try {
     await started.promise;
-    await herdrRpc("pane.send_text", { pane_id: paneId, text: `${fakeOpencode}\n` });
+    await herdrRpc("pane.send_text", { pane_id: paneId, text: `${command}\n` });
     await detected.promise;
   } finally {
     clearTimeout(timeout);
@@ -772,5 +772,66 @@ describe("opencode prompt contract", () => {
       service_name: "AuthService",
       env: "production",
     });
+  }, 25_000);
+
+  it.skipIf(process.platform !== "linux")("reads and answers a --standalone TUI's form through its own server, not the shared service", async () => {
+    const sessionID = "ses_opencodeStandalone";
+    const privateForms: Record<string, OpenCodeFormInfo[]> = {
+      [sessionID]: [{
+        id: "form_private", sessionID, title: "Questions", metadata: { kind: "question" },
+        fields: [{ key: "q0", type: "string", title: "Pick", description: "Which one?", options: [{ value: "a", label: "A" }, { value: "b", label: "B" }], custom: true }],
+      }],
+    };
+    const privateReplies: Array<{ formID: string; answer: Record<string, string | string[]>; auth: string }> = [];
+    const target = Bun.serve({
+      port: 0,
+      hostname: "127.0.0.1",
+      async fetch(req) {
+        const url = new URL(req.url);
+        const list = url.pathname.match(/^\/api\/session\/([^/]+)\/form$/);
+        if (req.method === "GET" && list) return Response.json({ data: privateForms[decodeURIComponent(list[1]!)] ?? [] });
+        const reply = url.pathname.match(/^\/api\/session\/([^/]+)\/form\/([^/]+)\/reply$/);
+        if (req.method === "POST" && reply) {
+          const body = (await req.json()) as { answer: Record<string, string | string[]> };
+          privateReplies.push({ formID: decodeURIComponent(reply[2]!), answer: body.answer, auth: req.headers.get("authorization") ?? "" });
+          privateForms[decodeURIComponent(reply[1]!)] = [];
+          return new Response(null, { status: 204 });
+        }
+        return new Response("Not found", { status: 404 });
+      },
+    });
+    const privateServer = join(root, "bin", "private-server.ts");
+    writeFileSync(privateServer, `Bun.serve({ port: 0, hostname: "127.0.0.1", async fetch(req) {
+      const url = new URL(req.url);
+      if (url.pathname === "/api/info") return Response.json({ version: "2.3.2", pid: process.pid });
+      return fetch("http://127.0.0.1:${target.port}" + url.pathname + url.search, { method: req.method, headers: req.headers, body: req.method === "GET" ? undefined : await req.text() });
+    } });\n`);
+    const standalone = join(root, "bin-standalone", "opencode");
+    mkdirSync(join(root, "bin-standalone"), { recursive: true });
+    writeFileSync(standalone, `#!${process.execPath}
+const child = Bun.spawn([process.execPath, ${JSON.stringify(privateServer)}, "serve", "--stdio"], { env: { ...process.env, OPENCODE_PASSWORD: "private-pass" } });
+for (const signal of ["SIGHUP", "SIGTERM", "SIGINT"]) process.on(signal, () => { child.kill(); process.exit(0); });
+setInterval(() => {}, 60_000);\n`);
+    chmodSync(standalone, 0o755);
+    receivedReplies = [];
+    try {
+      const paneId = await setupOpencodePane(sessionID, "standalone", `${standalone} --standalone`);
+      let prompt: InteractivePrompt | null = null;
+      for (let attempt = 0; attempt < 50 && !prompt; attempt++) {
+        const response = await fetch(`http://127.0.0.1:${server.port}/api/pane/prompt?pane_id=${encodeURIComponent(paneId)}`);
+        const body = await response.json() as { prompt: InteractivePrompt | null };
+        if (body.prompt && !body.prompt.fallback) prompt = body.prompt;
+        else await Bun.sleep(100);
+      }
+      expect(prompt?.question).toBe("Which one?");
+      const answered = await fetch(`http://127.0.0.1:${server.port}/api/pane/prompt/answer`, {
+        method: "POST", body: JSON.stringify({ pane_id: paneId, prompt_id: prompt!.id, option_index: 1 }),
+      });
+      expect(answered.status).toBe(200);
+      expect(privateReplies).toEqual([{ formID: "form_private", answer: { q0: "b" }, auth: opencodeAuthHeader("private-pass") }]);
+      expect(receivedReplies).toEqual([]);
+    } finally {
+      target.stop(true);
+    }
   }, 25_000);
 });

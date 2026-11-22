@@ -20,7 +20,8 @@ import { badRequest, errorResponse, jsonResponse, setRequestRoute } from "./http
 import { claudePlanFile } from "./claude-plan.ts";
 import { heldBody, type ApprovalDialog, type ApprovalHub } from "./approvals/hub.ts";
 import { acpPrompt, answerAcpPrompt, type AcpCards } from "./approvals/acp.ts";
-import { listPendingPermissions, listPendingQuestionForms, openCodePermissionsRead, openCodeService, replyOpenCodeForm, replyOpenCodePermission, withShellInput } from "./opencode-service.ts";
+import { listPendingPermissions, listPendingQuestionForms, openCodePermissionsRead, replyOpenCodeForm, replyOpenCodePermission, withShellInput } from "./opencode-service.ts";
+import { openCodePaneServer } from "./opencode-model.ts";
 import { opencodeSessionId } from "./opencode.ts";
 import { agentPickerWaits, registry, SCREEN_READ_AGENTS } from "./dialogs/registry.ts";
 import { ANSI_RE, type AnswerStep, KEY, type OmoAsk, type ParsedPrompt, type PromptDraft, cleanLine, findLastIndex, finishPrompt, isDivider, keySteps, navigationKeys, own, parsedByPublicPrompt, publicPrompt } from "./dialogs/shared.ts";
@@ -943,8 +944,8 @@ async function readKnownPrompt(
     const sessionID = opencodeSessionId(pane);
     if (!sessionID) break native;
     const state = openCodeState.begin(paneId, sessionID);
-    // only the process service.json names, as /api/info proves it; never a service started here
-    const service = await openCodeService(openCodeStateDir, signal, { onWindows: true });
+    // the pane TUI's own server (--standalone) or the process service.json names, as /api/info proves it; never one started here
+    const service = await openCodePaneServer(paneId, openCodeStateDir, signal, { onWindows: true });
     const config = service?.config ?? null;
     const revision = state.revision;
     const issued = ++state.issued;
@@ -1678,8 +1679,8 @@ export async function handlePromptRequest(request: Request, url: URL, options: P
           || body.step_index !== undefined || body.draft !== undefined) return badRequest("invalid_answer", "A valid option index is required.");
         const asking = askings.get(body.pane_id);
         if (!(await openCodePaneOn(body.pane_id, sessionID, openCodeState, deadlineAt)) || deadline.aborted) return promptChanged();
-        // the service as it is right before the reply: still the one service.json names, and still a 2.x one
-        const service = await openCodeService(options.openCodeStateDir, deadline, { onWindows: true });
+        // the service as it is right before the reply: the pane TUI's own server or the one service.json names, and still a 2.x one
+        const service = await openCodePaneServer(body.pane_id, options.openCodeStateDir, deadline, { onWindows: true });
         const config = service && openCodePermissionsRead(service.version) ? service.config : null;
         if (!config) return jsonResponse({ error: { code: "service_unavailable", message: "OpenCode service is not available. Your answer has not been sent." } }, 502);
         const replied = await replyOpenCodePermission(config, sessionID, requestID, decision, deadline);
@@ -1808,7 +1809,7 @@ export async function handlePromptRequest(request: Request, url: URL, options: P
           return jsonResponse({ ok: true });
         }
 
-        const config = (await openCodeService(options.openCodeStateDir, deadline, { onWindows: true }))?.config ?? null;
+        const config = (await openCodePaneServer(body.pane_id, options.openCodeStateDir, deadline, { onWindows: true }))?.config ?? null;
         if (!config) {
           return jsonResponse({ error: { code: "service_unavailable", message: "OpenCode service is not available." } }, 502);
         }
