@@ -1460,9 +1460,10 @@ export function Composer({
             <span className="composer-agent-label visually-hidden">{agentLabel}</span>
             <span className="composer-status-separator visually-hidden" aria-hidden="true">·</span>
             <strong className="visually-hidden">{t(composerStatusWord(shownStatus))}</strong>
-            {/* the mark, the model, the level and the context ring as one quiet pill. It only shows: no role,
-                no focus, nothing to press but the ring inside it. A pane that names no model draws no pill
-                (.is-bare): the mark, a level if it has one, and the ring stand in the row as they are */}
+            {/* the mark, the model, the level and the context ring in one group. Where it only shows (no role,
+                no focus, nothing to press but the ring inside it) it is quiet dim text; only the OpenCode
+                button is drawn as a pill. A pane that names no model (.is-bare): the mark, a level if it
+                has one, and the ring stand in the row as they are */}
             <Pill className={`composer-pill${metadata?.model ? "" : " is-bare"}${modelSwitchable ? " is-switchable" : ""}`} {...pillProps}>
               {agent && <AgentMark agent={agent} size={14} />}
               {modelShown && <span className="composer-model-info" aria-label={t("Model and reasoning")}>

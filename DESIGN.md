@@ -4280,17 +4280,21 @@ Alert rows of the table above from the `--droplet-*` roles in `src/styles.css`.
   (`.visually-hidden`): the header names the pane, and the state is told by Stop, the live row
   and the prompt card. No state word is drawn in the chat composer.
 - The model pill (`.composer-pill`) holds the agent mark, the model, the reasoning level and the
-  context ring in one quiet surface: `--bg-hover` fill, `--radius-pill`, `--control-h` tall,
-  `--space-3` inline padding, `--space-2` between its parts. The model is in `--text` at
-  `--fw-medium`; the level follows a middle dot in `--text-dim`, as the agent's own words with
-  only the first letter drawn as a capital (`::first-letter`, the text is not rewritten); a pane
-  that records no level draws no dot and no dash, only the name. On the
-  fill the ring's track is `--border-strong`; a ring left bare on the card keeps `--border`.
-  No part carries a chevron: herdr owns the agent, so none of them opens a menu. It is display only: a `span` with no role, no
-  focus, no hover or pressed state, no pointer cursor and no chevron; the ring inside it is the
-  one thing a keyboard reaches on desktop (`tabindex="0"`; while its focus is visible its number
-  stands in a tooltip above it, `--bg-elevated` on `--border-strong`, which no box around it
-  clips); mobile keeps the ring inert and out of the tab order. The `title` of the model is the id as received, and the level's is its
+  context ring in one group, `--control-h` tall with `--space-2` between its parts. Where it only
+  shows, it is quiet dim text with no fill and no shape, so nothing about it says it can be
+  tapped: a `span` with no role, no focus, no hover or pressed state, no pointer cursor and no
+  chevron, the model in the row's `--text-dim` at `--fw-medium`, as Codex's footer writes the
+  model it cannot change there. herdr owns the agent, so none of its parts opens a menu; the ring
+  inside it is the one thing a keyboard reaches on desktop (`tabindex="0"`; while its focus is
+  visible its number stands in a tooltip above it, `--bg-elevated` on `--border-strong`, which no
+  box around it clips); mobile keeps the ring inert and out of the tab order. Only an
+  OpenCode pane, whose service switches its session's model (`OpenCodeModelDialog`), draws it as a
+  pill, because there it is a button: `--bg-hover` fill (`--accent-tint` on hover), `--radius-pill`,
+  `--space-3` inline padding, the model in `--text`. The level follows a middle dot in
+  `--text-dim`, as the agent's own words with only the first letter drawn as a capital
+  (`::first-letter`, the text is not rewritten); a pane that records no level draws no dot and no
+  dash, only the name. On the button's fill the ring's track is `--border-strong`; anywhere else
+  it keeps `--border`. The `title` of the model is the id as received, and the level's is its
   sentence; behind a name the id is also repeated as `.visually-hidden` text, since a touch
   cannot reach a title. A pane that names no model draws no pill: the mark and the ring stand
   alone, with a dim `Model —` and the level between them if the pane records only a level.

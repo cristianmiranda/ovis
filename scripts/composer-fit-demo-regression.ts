@@ -27,7 +27,7 @@ try {
       });
       // Typography is applied by SettingsProvider after the render. At this fixed card width,
       // the larger interface font must step effort out without needing a viewport resize.
-      await withCard(browser, 1075, { agent: "codex", model: LONG_MODEL }, async (page) => {
+      await withCard(browser, 1030, { agent: "codex", model: LONG_MODEL }, async (page) => {
         const before = await measure(page);
         assert.equal(before.draw, "full");
         assert.equal(before.model?.clipped, false);
@@ -54,7 +54,7 @@ try {
 
       await withCard(browser, 330, { agent: "claude", model: "claude-opus-5-5", status: "idle", pending: false, uiFontSize: 15 }, async (page) => {
         const draws = new Set<string>();
-        for (let width = 330; width >= 304; width -= 2) {
+        for (let width = 330; width >= 270; width -= 2) {
           await page.setViewportSize({ width, height: 844 });
           await page.evaluate(() => new Promise<void>((done) => requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(() => done())))));
           const row = await measure(page);
@@ -178,7 +178,14 @@ try {
         await drawn(page, row.draw as Draw, `${agent}, a long model identifier`);
         assert.ok(row.send && !row.queue && !row.sendOptions);
       });
-      console.log("PASS agents at 350, 390, 800 and 1440px use one Stop/Send control with no Queue or dropdown");
+      // only OpenCode's pill switches the model, so only it is drawn as a pill; every other pane's is quiet text (drawn)
+      for (const theme of ["dark", "light"] as const) for (const width of [390, 1440]) await withCard(browser, width, { agent: "opencode", model: "claude-opus-5-5", effort: "high", theme }, async (page) => {
+        const row = await measure(page);
+        await drawn(page, row.draw as Draw, `opencode ${width}px ${theme}`);
+        assert.ok(row.draw === "out" || row.pill.switchable, `opencode ${width}px ${theme}: the pill is the model switch: ${JSON.stringify(row.pill)}`);
+        if (row.draw !== "out") assert.equal(await page.locator('button.composer-pill[title="Change model"][aria-haspopup="dialog"]').count(), 1);
+      });
+      console.log("PASS agents at 350, 390, 800 and 1440px use one Stop/Send control with no Queue or dropdown; only OpenCode's model switch is drawn as a pill, every other model label is quiet text");
 
       for (const width of [320, 330, 350, 390]) await withCard(browser, width, { agent: "codex", model: LONG_MODEL, mic: true }, async (page) => {
         await draft(page);

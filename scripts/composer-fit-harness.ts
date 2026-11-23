@@ -13,7 +13,7 @@ import { serveDemo } from "./demo-server.ts";
 const LONG_MODEL = "gpt-5.6-sol-codex-preview-2026-10";
 const NAMED = ["gpt-5.6", "claude-opus-5-5"] as const;
 
-interface Case { model: string | null; agent?: "claude" | "codex" | "pi" | "omo"; provider?: string; pending?: boolean; effort?: string | null; status?: "working" | "idle"; mic?: boolean; ring?: boolean; chatFontSize?: number | null; showUsage?: boolean; weeklyOnly?: boolean; suggestion?: string | null; suggestionChip?: boolean; contextUsed?: number; stream?: number; freezeConversation?: boolean; language?: "en" | "ko" | "ja" | "zh"; theme?: "light" | "dark"; scale?: number; autoSend?: boolean; uiFontSize?: number }
+interface Case { model: string | null; agent?: "claude" | "codex" | "pi" | "omo" | "opencode"; provider?: string; pending?: boolean; effort?: string | null; status?: "working" | "idle"; mic?: boolean; ring?: boolean; chatFontSize?: number | null; showUsage?: boolean; weeklyOnly?: boolean; suggestion?: string | null; suggestionChip?: boolean; contextUsed?: number; stream?: number; freezeConversation?: boolean; language?: "en" | "ko" | "ja" | "zh"; theme?: "light" | "dark"; scale?: number; autoSend?: boolean; uiFontSize?: number }
 type Draw = "full" | "no-effort" | "out";
 interface ComposerScrollGeometry {
   height: number;
@@ -58,6 +58,8 @@ const measure = (page: Page) => page.evaluate(() => {
           // the level too, wherever it is drawn (stepped out or not recorded it is a 1px box that is only read)
           && ((pill.querySelector<HTMLElement>(".composer-reasoning")?.getBoundingClientRect().width ?? 0) <= 1.5 || inside(".composer-reasoning")),
         inert: pill.tagName === "SPAN" && !pill.hasAttribute("role") && !pill.hasAttribute("tabindex") && style.cursor === "auto",
+        switchable: pill.tagName === "BUTTON" && pill.classList.contains("is-switchable") && style.cursor === "pointer",
+        fill: style.backgroundColor, padding: parseFloat(style.paddingLeft) + parseFloat(style.paddingRight), radius: parseFloat(style.borderTopLeftRadius),
       };
     })(),
     name: document.querySelector<HTMLElement>(".composer-model")?.textContent ?? null, named: !document.querySelector(".composer-model")?.classList.contains("is-id"),
@@ -71,7 +73,7 @@ const measure = (page: Page) => page.evaluate(() => {
         probe.remove();
         return color;
       };
-      return track ? { stroke: getComputedStyle(track).stroke, bare: token("--border"), onFill: token("--border-strong") } : null;
+      return track ? { stroke: getComputedStyle(track).stroke, bare: token("--border"), onFill: token("--border-strong"), fill: token("--bg-hover") } : null;
     })(),
     hint: part(".composer-status-hint"), queue: document.querySelector(".composer-queue-button") !== null,
     send: document.querySelector(".composer-controls-right .composer-send") !== null,
@@ -92,8 +94,10 @@ const drawn = async (page: Page, draw: Draw, what: string): Promise<Row> => {
   if (draw === "no-effort") assert.ok((row.effort?.width ?? 0) <= 1, `${what}: the level is read, not drawn: ${JSON.stringify(row)}`);
   if (draw === "out") assert.ok((row.label?.width ?? 0) <= 1, `${what}: the name and the level are read, not drawn: ${JSON.stringify(row)}`);
   if (draw === "out") assert.equal(row.pill.width, 0, `${what}: no pill is drawn without its label: ${JSON.stringify(row)}`);
-  else assert.ok(row.pill.width > 1 && row.pill.inRow && row.pill.holds && row.pill.inert, `${what}: the mark, the name and the ring sit in one pill that is not a control: ${JSON.stringify(row)}`);
-  if (row.track) assert.equal(row.track.stroke, draw === "out" ? row.track.bare : row.track.onFill, `${what}: the ring's track is the one for where it stands: ${JSON.stringify(row.track)}`);
+  else assert.ok(row.pill.width > 1 && row.pill.inRow && row.pill.holds && (row.pill.inert || row.pill.switchable), `${what}: the mark, the name and the ring sit in one group, a control only where it switches the model: ${JSON.stringify(row)}`);
+  if (draw !== "out" && row.pill.inert) assert.ok(row.pill.fill === "rgba(0, 0, 0, 0)" && row.pill.padding === 0 && row.pill.radius === 0, `${what}: a pill that only shows is quiet text, drawn with no fill and no shape: ${JSON.stringify(row.pill)}`);
+  if (draw !== "out" && row.pill.switchable && row.track) assert.ok(row.pill.fill === row.track.fill && row.pill.padding > 0 && row.pill.radius > 0, `${what}: the pill that switches the model is drawn as a pill: ${JSON.stringify(row.pill)}`);
+  if (row.track) assert.equal(row.track.stroke, draw !== "out" && row.pill.switchable ? row.track.onFill : row.track.bare, `${what}: the ring's track is the one for where it stands: ${JSON.stringify(row.track)}`);
   assert.deepEqual(row.overlaps, [], `${what}: nothing overlaps its neighbour`);
   assert.equal(row.overflowing, false, `${what}: the page does not scroll sideways`);
   return row;
