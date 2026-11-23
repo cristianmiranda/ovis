@@ -87,7 +87,7 @@ button.setup-tile {
   font-size: var(--fs-xs);
 }
 
-@media (max-width: 768px) {
+@media (max-width: 768px), (pointer: coarse) and (max-height: 500px) {
   .setup-tile-install-label {
     position: absolute;
     width: 1px;

@@ -4,7 +4,7 @@ import { X } from "lucide-react";
 import { browserStorage as storage, finishHints, FIRST_HINTS_KEY, hintsPending } from "../lib/firstHints.ts";
 import { useT } from "../lib/i18n.ts";
 import { usePhoneSheetBack } from "../lib/sheetHistory.ts";
-import { useMediaQuery } from "../lib/useMediaQuery.ts";
+import { useMediaQuery, WIDE_QUERY } from "../lib/useMediaQuery.ts";
 import "./FirstStartHints.css";
 
 const WATCH_AT_FIRST = 600;
@@ -45,8 +45,8 @@ export function FirstStartHints({ active }: { active: boolean }) {
     { title: t("Waiting agents first"), text: t("From every workspace.") },
     { title: t("Start another agent"), text: t("Pick a folder to start in.") },
   ];
-  // where the sidebar is drawn beside the pane: up to 768px it is a closed drawer (MachineSidebar.tsx DRAWER_QUERY)
-  const wide = useMediaQuery("(min-width: 769px)");
+  // where the sidebar is drawn beside the pane: on a phone it is a closed drawer (PHONE_QUERY)
+  const wide = useMediaQuery(WIDE_QUERY);
   const shown = active && pending && wide;
   const finish = (): void => {
     const store = storage();

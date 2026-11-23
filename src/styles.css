@@ -1660,7 +1660,7 @@
 
 /* after the density block on purpose: same specificity, and from 769px both densities share one
    header height */
-@media (min-width: 769px) {
+@media (min-width: 769px) and (not (pointer: coarse)), (min-width: 769px) and (min-height: 501px) {
   :root {
     --header-h: var(--header-h-wide);
   }
@@ -2177,7 +2177,7 @@ button {
   height: 1em;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 768px), (pointer: coarse) and (max-height: 500px) {
   .context-session {
     display: none;
   }
@@ -2216,7 +2216,7 @@ button {
   color: var(--status-done);
 }
 
-@media (max-width: 768px) {
+@media (max-width: 768px), (pointer: coarse) and (max-height: 500px) {
   .context.has-connection,
   .context.has-connection.has-tabs,
   .context:has(.context-watch),
@@ -2367,7 +2367,7 @@ button {
   justify-content: center;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 768px), (pointer: coarse) and (max-height: 500px) {
   .view-switch {
     height: var(--control-h);
     box-shadow: inset 0 0 0 var(--hairline) var(--divider);
@@ -2550,7 +2550,7 @@ button {
 
 /* one pane of a split at a time: the open tab is named for its pane, whose name can be long; the
    tab's place and its ⋯ stay in view before the row's + */
-@media (max-width: 768px) {
+@media (max-width: 768px), (pointer: coarse) and (max-height: 500px) {
   .pane-slot .tab-strip-label {
     max-width: min(var(--tab-max-w), 40vw);
     overflow: hidden;
@@ -2932,7 +2932,7 @@ button {
 }
 
 /* A phone keeps the --bg-panel bar and its rule: the installed app's theme-color matches it. */
-@media (min-width: 769px) {
+@media (min-width: 769px) and (not (pointer: coarse)), (min-width: 769px) and (min-height: 501px) {
   .app-header.is-zoned {
     background: var(--term-bg);
   }
@@ -2998,7 +2998,7 @@ button {
   }
 }
 
-@media (display-mode: window-controls-overlay) and (min-width: 769px) {
+@media (display-mode: window-controls-overlay) and (min-width: 769px) and (not (pointer: coarse)), (display-mode: window-controls-overlay) and (min-width: 769px) and (min-height: 501px) {
   .app:not(.sidebar-collapsed) .header-side {
     padding-left: calc(var(--space-3) + env(titlebar-area-x, 0px));
   }
@@ -3011,7 +3011,7 @@ button {
   padding-left: calc(var(--window-controls-w, 72px) + env(safe-area-inset-left, 0px));
 }
 
-@media (min-width: 769px) {
+@media (min-width: 769px) and (not (pointer: coarse)), (min-width: 769px) and (min-height: 501px) {
   :root[data-window-controls] .app:not(.sidebar-collapsed) .header-side {
     padding-left: calc(var(--window-controls-w, 72px) + env(safe-area-inset-left, 0px));
   }
@@ -3740,7 +3740,7 @@ button {
   }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 768px), (pointer: coarse) and (max-height: 500px) {
   .drawer-toggle {
     display: inline-flex;
   }
@@ -3822,7 +3822,7 @@ button {
   }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 768px), (pointer: coarse) and (max-height: 500px) {
   .app-header .icon-button {
     width: var(--touch-target-header);
     height: var(--touch-target-header);
@@ -3835,7 +3835,7 @@ button {
   }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 768px), (pointer: coarse) and (max-height: 500px) {
   .app:has(> .app-body > .pane-column.is-chat > .pane-split:first-child > .pane-slot > .terminal-host:first-child) {
     --header-over: calc(var(--header-h) + env(safe-area-inset-top, 0px));
   }

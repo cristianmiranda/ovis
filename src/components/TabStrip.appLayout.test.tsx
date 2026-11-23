@@ -277,7 +277,7 @@ describe("the tab strip on a PC the Herdr app lays out", () => {
     const marks = () => tab().findAll((found) => found.props.className === "tab-strip-agent").length;
     // a 700px window: one pane of a split at a time, the menu a popover rather than a phone's sheet
     const wide = window.matchMedia;
-    window.matchMedia = (query: string) => ({ ...media, matches: query.includes("(max-width: 768px)") && !query.includes("max-height") }) as unknown as MediaQueryList;
+    window.matchMedia = (query: string) => ({ ...media, matches: query.includes("(max-width: 768px)") && !query.includes("(max-height: 700px)") }) as unknown as MediaQueryList;
 
     await drawSplit(split(""));
     expect(chip()).toBe("build shell");

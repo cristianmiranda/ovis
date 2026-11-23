@@ -73,7 +73,7 @@
   scrollbar-width: thin;
 }
 
-@media (min-width: 769px) {
+@media (min-width: 769px) and (not (pointer: coarse)), (min-width: 769px) and (min-height: 501px) {
   .terminal-host:first-child .chat-view::before {
     content: "";
     position: sticky;

@@ -217,7 +217,7 @@
   margin-left: auto;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 768px), (pointer: coarse) and (max-height: 500px) {
   .agent-setup {
     padding: var(--space-4);
     border-radius: var(--radius-lg);

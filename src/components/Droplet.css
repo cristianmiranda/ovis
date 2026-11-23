@@ -202,7 +202,7 @@
 .droplet[data-kind="done"] { --droplet-tone: var(--droplet-done); }
 .droplet[data-kind="ended"] { --droplet-tone: var(--droplet-text-dim); }
 
-@media (max-width: 768px) {
+@media (max-width: 768px), (pointer: coarse) and (max-height: 500px) {
   .droplet {
     --droplet-max: min(340px, calc(100vw - 2 * var(--space-4) - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px)));
     --droplet-w: var(--droplet-fit, var(--droplet-max));

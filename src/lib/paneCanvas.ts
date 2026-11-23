@@ -1,9 +1,10 @@
 import type { PaneLayoutSnapshot } from "../../shared/protocol.ts";
+import { PHONE_QUERY, phoneQueryAnd } from "./useMediaQuery.ts";
 type PaneLayoutSplit = PaneLayoutSnapshot["splits"][number];
 
-export const SOLO_PANE_QUERY = "(max-width: 768px)";
+export const SOLO_PANE_QUERY = PHONE_QUERY;
 
-export const CRAMPED_QUERY = "(max-width: 768px) and (max-height: 700px)";
+export const CRAMPED_QUERY = phoneQueryAnd("(max-height: 700px)");
 export const tabRowHidden = (cramped: boolean, tabCount: number, inHeader: boolean): boolean => inHeader || (cramped && tabCount === 1);
 
 /**

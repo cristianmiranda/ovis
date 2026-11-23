@@ -200,7 +200,7 @@ button.machine-title:focus-visible { outline-offset: calc(var(--ring-offset) * -
   }
 }
 
-@media (max-width: 768px) and (pointer: coarse) {
+@media (max-width: 768px) and (pointer: coarse), (pointer: coarse) and (max-height: 500px) {
   .machine-group:not(.is-two-line) .machine-new { margin-right: calc((var(--space-6) - var(--touch-target)) / 2); }
   .machine-group:not(.is-two-line) .machine-toggle { padding-inline-start: calc(var(--touch-target) - var(--space-6)); }
 }
@@ -209,11 +209,11 @@ button.machine-title:focus-visible { outline-offset: calc(var(--ring-offset) * -
    mouse too (SidebarSections.css hides a PC's actions at rest only where none can): it keeps more ink than the 0.55
    of a row action (Sidebar.css), the least round step that holds its glyph at 3:1 on the drawer's surface in every
    shipped theme */
-@media (max-width: 768px) and (any-pointer: coarse) {
+@media (max-width: 768px) and (any-pointer: coarse), (pointer: coarse) and (max-height: 500px) {
   .machine-header > .machine-new:disabled { opacity: 0.75; }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 768px), (pointer: coarse) and (max-height: 500px) {
   .machine-new-row:disabled { cursor: default; }
   .machine-new-row:disabled > .sidebar-mark { opacity: 0.75; }
 }

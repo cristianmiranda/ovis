@@ -301,7 +301,7 @@
   .tab-strip-menu { transition: none; }
 }
 
-@media (min-width: 769px) {
+@media (min-width: 769px) and (not (pointer: coarse)), (min-width: 769px) and (min-height: 501px) {
   .tab-strip,
   .tab-strip-row {
     --strip-bg: var(--term-bg);

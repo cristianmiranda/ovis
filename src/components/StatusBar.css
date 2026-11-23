@@ -94,7 +94,7 @@
   background: var(--status-reconnecting);
 }
 
-@media (max-width: 768px) {
+@media (max-width: 768px), (pointer: coarse) and (max-height: 500px) {
   .status-bar {
     display: none;
   }

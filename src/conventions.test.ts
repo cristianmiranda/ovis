@@ -132,6 +132,45 @@ describe("component CSS", () => {
   });
 });
 
+// A phone on its side is 768px wide or more and keeps the phone layout: the switch is the width or a
+// short touch screen (PHONE_QUERY, src/lib/useMediaQuery.ts), and a stylesheet cannot share a variable
+// in @media, so each one writes the switch out whole.
+describe("the phone layout's switch", () => {
+  const OWNER = "src/lib/useMediaQuery.ts";
+
+  function switchOffenders(prelude: string): string[] {
+    const clauses = splitTopLevel(prelude, /,/).map((clause) => clause.replace(/\s+/g, " ").trim());
+    const shortTouch = clauses.some((clause) => clause === "(pointer: coarse)" || clause.includes("(pointer: coarse) and (max-height: 500px)"));
+    return clauses.filter((clause) =>
+      (clause.includes("(max-width: 768px)") && !shortTouch)
+      || (clause.includes("(min-width: 769px)") && !/\(pointer: fine\)|\(not \(pointer: coarse\)\)|\(min-height: 501px\)/.test(clause)));
+  }
+
+  it("writes the switch out whole in every stylesheet", () => {
+    const offenders = scan("src/**/*.css").flatMap((file) =>
+      [...read(file).replace(/\/\*[\s\S]*?\*\//g, "").matchAll(/@media([^{;]+)\{/g)].flatMap((match) => switchOffenders(match[1]!).map((clause) => `${file}: @media ${match[1]!.trim()} (${clause})`)));
+    fail(offenders, `A phone on its side keeps the phone layout: next to (max-width: 768px) write ", (pointer: coarse) and (max-height: 500px)", and write (min-width: 769px) as "(min-width: 769px) and (not (pointer: coarse)), (min-width: 769px) and (min-height: 501px)" (PHONE_QUERY and WIDE_QUERY in ${OWNER}).`);
+  });
+
+  it("names the switch from one place in code", () => {
+    const offenders = [...scan("src/**/*.{ts,tsx}"), ...scan("shared/**/*.ts")].filter((name) => name !== OWNER && !/\.test\./.test(name)).flatMap((file) => {
+      const code = stripComments(read(file));
+      return [...code.matchAll(/76[89]px/g)].map((match) => `${file}:${lineOf(code, match.index)}`);
+    });
+    fail(offenders, `Use PHONE_QUERY, WIDE_QUERY, phoneQueryAnd() or wideQueryAnd() from ${OWNER}, never the 768px or 769px width alone.`);
+  });
+
+  it("tells a whole switch from a width alone", () => {
+    expect(switchOffenders("(max-width: 768px), (pointer: coarse) and (max-height: 500px)")).toEqual([]);
+    expect(switchOffenders("(pointer: coarse), (max-width: 768px)")).toEqual([]);
+    expect(switchOffenders("(min-width: 769px) and (not (pointer: coarse)), (min-width: 769px) and (min-height: 501px)")).toEqual([]);
+    expect(switchOffenders("(hover: hover) and (pointer: fine) and (min-width: 769px)")).toEqual([]);
+    expect(switchOffenders("(max-width: 768px)")).toEqual(["(max-width: 768px)"]);
+    expect(switchOffenders("(min-width: 769px)")).toEqual(["(min-width: 769px)"]);
+    expect(switchOffenders("(max-width: 768px) and (pointer: coarse)")).toEqual(["(max-width: 768px) and (pointer: coarse)"]);
+  });
+});
+
 function tokens(css: string, selector: string): Map<string, string> {
   const found = new Map<string, string>();
   const text = css.replace(/\/\*[\s\S]*?\*\//g, "");

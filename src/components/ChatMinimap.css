@@ -53,6 +53,6 @@
   .chat-minimap-tick::before { transition: none; }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 768px), (pointer: coarse) and (max-height: 500px) {
   .chat-minimap { display: none; }
 }

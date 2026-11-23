@@ -220,6 +220,7 @@ try {
     // 4.5 s after load (site/demo/transport.ts), and an idle tab among others closes without a confirmation
     await open(browser, origin, LANDSCAPE, async (page) => {
       const label = LANDSCAPE.label;
+      await page.locator(".drawer-toggle").click();
       await page.locator(".sidebar").getByRole("button", { name: /^Settings/ }).first().click();
       clear(await outside(page, ".settings-dialog", LANDSCAPE.insets), `${label}: Settings clears the notch on either side and the home indicator`);
       await reachable(page.getByRole("button", { name: "Close settings" }), LANDSCAPE.insets, `${label}: Settings' close`);
@@ -227,11 +228,13 @@ try {
       await keep(page, "landscape-settings");
       await close(page, ".settings-dialog");
 
-      await page.locator(".tab-strip-menu").first().click();
-      clear(await outside(page, ".row-menu", LANDSCAPE.insets), `${label}: a tab's menu ends above the home indicator`);
-      await reachable(page.locator(".row-menu [role=menuitem]").last(), LANDSCAPE.insets, `${label}: the tab menu's last item`);
-      await keep(page, "landscape-tab-menu");
-      await page.locator(".row-menu").getByText("Close tab", { exact: true }).click();
+      // a phone on its side keeps the phone layout: a lone tab has no row, and its actions are in the header's More
+      await headerMore(page);
+      clear(await outside(page, ".row-menu", LANDSCAPE.insets), `${label}: the header's More menu ends above the home indicator`);
+      await reachable(page.locator(".row-menu [role=menuitem]").last(), LANDSCAPE.insets, `${label}: the More menu's last item`);
+      await keep(page, "landscape-more-menu");
+      await close(page, ".row-menu");
+      await headerMore(page, "Close tab");
       clear(await outside(page, "[role=alertdialog]", LANDSCAPE.insets), `${label}: a confirmation clears the insets`);
       await reachable(page.getByRole("alertdialog").getByRole("button", { name: "Close tab" }), LANDSCAPE.insets, `${label}: the confirmation's Close tab`);
       await close(page, "[role=alertdialog]");

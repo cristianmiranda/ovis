@@ -37,7 +37,7 @@
 .sidebar-resizer.is-dragging::after,
 .sidebar-resizer:focus-visible::after { background: var(--accent); }
 
-@media (min-width: 769px) {
+@media (min-width: 769px) and (not (pointer: coarse)), (min-width: 769px) and (min-height: 501px) {
   .sidebar-resizer { display: block; }
 }
 

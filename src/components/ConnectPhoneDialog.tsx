@@ -20,7 +20,7 @@ import { copyText } from "../lib/clipboard.ts";
 import { useT } from "../lib/i18n.ts";
 import { tailscalePlan, type PhonePlan } from "../lib/phone.ts";
 import { reachablePcs, reachableState, savedAt, type ReachableFacts, type ReachablePc, type ReachableState } from "../lib/reachablePcs.ts";
-import { useMediaQuery } from "../lib/useMediaQuery.ts";
+import { PHONE_QUERY, useMediaQuery } from "../lib/useMediaQuery.ts";
 import { usePhoneSheetBack } from "../lib/sheetHistory.ts";
 import { useSheetSwipe } from "../lib/sheets.ts";
 import { nativeModalOver, useFocusTrap } from "../lib/useFocusTrap.ts";
@@ -57,7 +57,7 @@ const TAILSCALE_OPERATOR = "sudo tailscale set --operator=$USER";
 /** an address the SSH tab takes for another PC's Ovis rather than SSH: any http(s) scheme, as a browser reads `https:host` too */
 const OVIS_ADDRESS = /^https?:/i;
 
-const PHONE_QUERY = "(pointer: coarse), (max-width: 768px)";
+const TOUCH_OR_PHONE_QUERY = `(pointer: coarse), ${PHONE_QUERY}`;
 
 /**
  * The label of a device paired through the relay under this phone's own name, for a quiet hint.
@@ -196,7 +196,7 @@ export function ConnectPhoneDialog({ asked = null, plan: givenPlan, tailscale: g
     return () => window.removeEventListener("keydown", onKey, true);
   }, [onClose, surface]);
 
-  const phone = useMediaQuery(PHONE_QUERY);
+  const phone = useMediaQuery(TOUCH_OR_PHONE_QUERY);
   // what this PC's Tailscale says now, read again while a Tailscale step is up (useTailscaleWatch) or after a serve
   const [fresh, setFresh] = useState<RemoteAccess | null>(null);
   const plan = fresh !== null && tailscaleStepKind(givenPlan) ? tailscalePlan(fresh) : givenPlan;

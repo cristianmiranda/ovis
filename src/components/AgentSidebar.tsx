@@ -21,7 +21,7 @@ import { agentName } from "../lib/runtimeMove.ts";
 import { customTabLabel } from "../lib/tabName.ts";
 import { useSettings } from "../lib/settings.ts";
 import { SHEET_QUERY } from "../lib/sheets.ts";
-import { useMediaQuery } from "../lib/useMediaQuery.ts";
+import { PHONE_QUERY, useMediaQuery } from "../lib/useMediaQuery.ts";
 import { useSidebarActivity } from "../lib/sidebarActivity.tsx";
 import { machineFilter } from "../lib/sidebarFilter.ts";
 import { useSidebarFilter } from "../lib/sidebarFilterContext.ts";
@@ -167,7 +167,6 @@ function groupLabel(group: AgentGroup, t: (key: string) => string): string {
   }
 }
 
-const DRAWER_QUERY = "(max-width: 768px)";
 const FOLD_KEY = "ovis:agents-collapsed";
 
 const RESTING_OPEN_KEY = "ovis:agents-resting-open";
@@ -225,7 +224,7 @@ function initialFold(): boolean {
     const stored = window.localStorage.getItem(FOLD_KEY);
     if (stored === "1" || stored === "0") return stored === "1";
   } catch {}
-  return window.matchMedia?.(DRAWER_QUERY).matches === true;
+  return window.matchMedia?.(PHONE_QUERY).matches === true;
 }
 interface PinMenu { key: string; anchor: HTMLElement; point?: { x: number; y: number }; previousFocus?: HTMLElement | null }
 

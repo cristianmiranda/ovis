@@ -31,7 +31,7 @@ import { asksChoice, FoundHerdrChoices } from "./FoundHerdrChoices.tsx";
 import { useSettings } from "../lib/settings.ts";
 import { useAnnouncedText } from "../lib/useAnnouncedText.ts";
 import { machineErrorText, saysHerdrAway, sshFailure } from "../lib/userError.ts";
-import { useMediaQuery } from "../lib/useMediaQuery.ts";
+import { PHONE_QUERY, useMediaQuery } from "../lib/useMediaQuery.ts";
 import { SHEET_QUERY } from "../lib/sheets.ts";
 import { leavePageFromSheet } from "../lib/sheetHistory.ts";
 import { chooseAnotherPc, inNativeApp } from "../lib/nativeApp.ts";
@@ -40,8 +40,6 @@ import { canHideMachine, HIDDEN_MACHINES_MAX, setHiddenMachines, useHiddenMachin
 import { ExternalLink } from "../lib/externalLink.ts";
 import { MachineOffLine, useRecheck } from "./MachineOffLine.tsx";
 import { outOfReachReason } from "./relayPcState.tsx";
-
-export const DRAWER_QUERY = "(max-width: 768px)";
 
 const shownRevision = (machine: Machine) => machine.ovis_update?.revision ? { revision: machine.ovis_update.revision } : undefined;
 
@@ -116,7 +114,7 @@ export function MachineSidebar(props: Props) {
   const loneHost = props.machines.length === 1 && props.machines[0]!.kind === "local" ? props.machines[0]!.id : null;
 
   const exitToPcs = useMemo(() => pcListExit({ nativeApp: inNativeApp(), relayShell: shellMode() === "relay", pathname: window.location.pathname }), []);
-  const drawerWidth = useMediaQuery(DRAWER_QUERY);
+  const drawerWidth = useMediaQuery(PHONE_QUERY);
   const pagePcs = useShellPcs(exitToPcs === "shell", drawerWidth ? props.drawerOpen === true : true);
   const listedPcs = props.allMachines ?? props.machines;
   const [accountRows, setAccountRows] = useState<readonly string[]>([]);
@@ -362,7 +360,7 @@ export function manageActions(machine: Pick<Machine, "kind" | "herdr_profile_id"
 function MachineGroup({ machine, headerless = false, canHide, onHide, ...props }: Props & { machine: Machine; headerless?: boolean; canHide: boolean; onHide(): void }) {
   const t = useT();
   const compact = useSettings().settings.sidebarRows === "one";
-  const drawer = useMediaQuery(DRAWER_QUERY);
+  const drawer = useMediaQuery(PHONE_QUERY);
   const sheet = useMediaQuery(SHEET_QUERY);
   const [collapsed, toggleCollapsed] = useMachineFold(machine.id);
   const [menu, setMenu] = useState<HTMLElement | null>(null);

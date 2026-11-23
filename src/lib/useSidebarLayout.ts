@@ -3,7 +3,7 @@ import type { AppLink } from "./deepLink.ts";
 import { watchDrawerSwipe } from "./edgeSwipe.ts";
 import { FILE_PANEL_DOCK_QUERY, storedFilePanelWidth } from "./filePanelWidth.ts";
 import { storedSidebarWidth } from "./sidebarWidth.ts";
-import { useMediaQuery } from "./useMediaQuery.ts";
+import { PHONE_QUERY, useMediaQuery, WIDE_QUERY } from "./useMediaQuery.ts";
 
 export const SECOND_TAP_MS = 400;
 
@@ -17,13 +17,13 @@ export interface SidebarLayoutParams {
 }
 
 export function useSidebarLayout({ initialLink, drawerBlocked }: SidebarLayoutParams) {
-  const [drawerOpen, setDrawerOpenState] = useState(() => initialLink?.sidebar === "shown" && window.matchMedia?.("(min-width: 769px)").matches !== true && drawerBlocked?.current !== true);
+  const [drawerOpen, setDrawerOpenState] = useState(() => initialLink?.sidebar === "shown" && window.matchMedia?.(WIDE_QUERY).matches !== true && drawerBlocked?.current !== true);
   const setDrawerOpen = useCallback<Dispatch<SetStateAction<boolean>>>((next) => setDrawerOpenState((open) => {
     const asked = typeof next === "function" ? next(open) : next;
     return asked && drawerBlocked?.current !== true;
   }), [drawerBlocked]);
   const drawerOpenRef = useRef(drawerOpen); drawerOpenRef.current = drawerOpen;
-  const wideScreen = useMediaQuery("(min-width: 769px)");
+  const wideScreen = useMediaQuery(WIDE_QUERY);
   useEffect(() => { if (wideScreen) setDrawerOpen(false); }, [wideScreen]);
   useEffect(() => watchDrawerSwipe(() => drawerOpenRef.current, setDrawerOpen), []);
   const drawerOpenedAt = useRef<number | null>(null);
@@ -39,7 +39,7 @@ export function useSidebarLayout({ initialLink, drawerBlocked }: SidebarLayoutPa
   const [filePanelWidth, setFilePanelWidth] = useState(storedFilePanelWidth);
   const [sidebarFilterRequest, setSidebarFilterRequest] = useState(0);
   const openSidebarFilter = useCallback(() => {
-    if (window.matchMedia("(max-width: 768px)").matches) setDrawerOpen(true);
+    if (window.matchMedia(PHONE_QUERY).matches) setDrawerOpen(true);
     else setSidebarCollapsed(false);
     setSidebarFilterRequest((count) => count + 1);
   }, []);

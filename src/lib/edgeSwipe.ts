@@ -1,6 +1,8 @@
+import { PHONE_QUERY } from "./useMediaQuery.ts";
+
 /*
- * Only at the drawer's
- * width (<=768px, styles.css) and only for a mostly horizontal stroke, so the terminal's
+ * Only where the sidebar is a drawer
+ * (PHONE_QUERY, styles.css) and only for a mostly horizontal stroke, so the terminal's
  * one-finger scrolling and the transcript's vertical scrolling keep working.
  *
  * While the finger is down the drawer is under it, as an iPhone's is: it moves with the
@@ -56,7 +58,7 @@ function selecting(): boolean {
 }
 
 export function watchDrawerSwipe(isOpen: () => boolean, setOpen: (open: boolean) => void): () => void {
-  const narrow = window.matchMedia("(max-width: 768px)");
+  const narrow = window.matchMedia(PHONE_QUERY);
   let start: { x: number; y: number; open: boolean; at: number } | null = null;
   let claimed = false;
   let done = false;

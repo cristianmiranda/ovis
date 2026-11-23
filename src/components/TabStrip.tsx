@@ -23,7 +23,7 @@ import { moveDestinations } from "../lib/layoutTargets.ts";
 import { useAppLayout, useMachineApi, useMachineId } from "../lib/machineContext.tsx";
 import { PanePressContext } from "../lib/paneSubmitContext.ts";
 import { usePaneLocked } from "../lib/paneLocks.ts";
-import { useMediaQuery } from "../lib/useMediaQuery.ts";
+import { PHONE_QUERY, useMediaQuery, WIDE_QUERY, wideQueryAnd } from "../lib/useMediaQuery.ts";
 import { SHEET_QUERY } from "../lib/sheets.ts";
 import { useTabReorder } from "../lib/useTabReorder.ts";
 import { indicatorGlyph, paneStatus, rollupStatus, STATUS_WORD, type KnownStatus } from "../lib/status.ts";
@@ -41,7 +41,7 @@ let renameHandoff: { owner: string; tabId: string; value: string; layout: string
 const stripsShowing = new Map<string, number>();
 const stripLayout = (): string => typeof window === "undefined" || !window.matchMedia ? "" : `${window.matchMedia(HEADER_TABS_QUERY).matches}|${window.matchMedia(SHEET_QUERY).matches}`;
 const FOCUS_HANDOFF_MS = 500;
-const HEADER_TABS_QUERY = "(min-width: 769px)";
+const HEADER_TABS_QUERY = WIDE_QUERY;
 const EMPTY_WORKSPACE_TARGETS: ReadonlySet<string> = new Set();
 
 const said = (reason: unknown): string => reason instanceof ApiError ? reason.detail : reason instanceof Error ? reason.message : String(reason);
@@ -65,7 +65,7 @@ export interface TabStripProps {
   inHeader?: boolean;
   sheet?: HTMLElement | null;
   onSheetClose?: () => void;
-  /** the header's row (App, from 769px): browser tabs, each with its icon (a shell's glyph when no agent) and,
+  /** the header's row (App, WIDE_QUERY): browser tabs, each with its icon (a shell's glyph when no agent) and,
    *  unless `closable` is false (a watching device), a close */
   browserTabs?: boolean;
   closable?: boolean;
@@ -88,8 +88,8 @@ export function TabStrip({ snapshot, workspace, selectedPane, onSelectPane, onNe
   // the Herdr app's window owns this PC's tabs (lib/machineContext.tsx): no rename, no move, no other workspace
   // what the PC's herdr answers for its tabs (lib/machineContext.tsx): herdr-core never reorders them
   const { rename: renameOffered, move: moveOffered, arrange } = useAppLayout();
-  const touchMenu = useMediaQuery("(pointer: coarse), (max-width: 768px)");
-  const hoverMenu = useMediaQuery("(hover: hover) and (pointer: fine) and (min-width: 769px)");
+  const touchMenu = useMediaQuery(`(pointer: coarse), ${PHONE_QUERY}`);
+  const hoverMenu = useMediaQuery(wideQueryAnd("(hover: hover) and (pointer: fine)"));
   const menuButton = touchMenu || hoverMenu;
   const popup = useMediaQuery(SHEET_QUERY) ? "dialog" : "menu";
   const soloPanes = useMediaQuery(SOLO_PANE_QUERY);

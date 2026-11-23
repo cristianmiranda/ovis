@@ -1093,7 +1093,7 @@ button.sidebar-section-label:focus-visible { outline-offset: calc(var(--ring-off
   }
 }
 
-@media (min-width: 769px) {
+@media (min-width: 769px) and (not (pointer: coarse)), (min-width: 769px) and (min-height: 501px) {
   .app:not(.sidebar-collapsed) .header-side .palette-button:not(:only-child) { display: none; }
 }
 

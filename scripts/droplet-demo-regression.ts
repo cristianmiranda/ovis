@@ -88,7 +88,7 @@ try {
             const card = document.querySelector(".droplet-card")!;
             return getComputedStyle(card).opacity === "1";
           });
-          // From 769px the header is 46px, so a rotation changes its height: the card follows on
+          // The header can change its height on a rotation: the card follows on
           // the header's next resize callback. Give it a bounded wait; the assertion below still
           // decides, and reports the numbers.
           await page.waitForFunction(() => {

@@ -43,7 +43,7 @@ const scenarios: Scenario[] = [
   { name: "zh-desktop-240-dark", language: "zh", theme: "dark", density: "comfortable", viewport: { width: 1280, height: 900 }, touch: false, desktopSidebar: true },
   { name: "en-phone-390-light", language: "en", theme: "light", density: "compact", viewport: { width: 390, height: 844 }, touch: true, desktopSidebar: false, screenshots: true },
   { name: "en-phone-390-dark", language: "en", theme: "dark", density: "comfortable", viewport: { width: 390, height: 844 }, touch: true, desktopSidebar: false, screenshots: true },
-  { name: "en-landscape-844x390-dark", language: "en", theme: "dark", density: "comfortable", viewport: { width: 844, height: 390 }, touch: true, desktopSidebar: true },
+  { name: "en-landscape-844x390-dark", language: "en", theme: "dark", density: "comfortable", viewport: { width: 844, height: 390 }, touch: true, desktopSidebar: false },
 ];
 
 const machineGroup = (page: Page, name: string): Locator => page.locator(".machine-group").filter({ has: page.locator(".machine-name", { hasText: name }) });

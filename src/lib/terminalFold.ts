@@ -1,5 +1,6 @@
 import type { IBufferCell, IBufferLine, ITheme, Terminal } from "@xterm/xterm";
 import { canPanTerminalGrid, forwardWheel } from "./terminalWheel.ts";
+import { PHONE_QUERY } from "./useMediaQuery.ts";
 
 /*
  * The folded view of a grid wider than its screen that this browser does not size. A Windows PC's
@@ -14,7 +15,7 @@ import { canPanTerminalGrid, forwardWheel } from "./terminalWheel.ts";
  * right-aligned bars fold with the text: the pane menu's "Original width" draws the grid as it is again.
  */
 
-export const MIRROR_WRAP_QUERY = "(pointer: coarse), (max-width: 768px)";
+export const MIRROR_WRAP_QUERY = `(pointer: coarse), ${PHONE_QUERY}`;
 
 export const wideGridKey = (machineId: string, paneId: string): string => `${machineId}\n${paneId}`;
 const wideOwners = new Map<object, string>();

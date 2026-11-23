@@ -1071,6 +1071,15 @@ Alert rows of the table above from the `--droplet-*` roles in `src/styles.css`.
   `.terminal-host`. While a phone's soft keyboard is up (`data-keyboard`), `--app-height` follows
   `visualViewport` so the keyboard does not cover input; otherwise the shell is `100dvh`, because an
   iPhone home screen app reports a visual viewport shorter than the screen without a keyboard.
+- One switch picks the phone layout (the workspace drawer, the phone header) or the wide one (the
+  sidebar beside the pane, the header's tab row): a window up to `768px` wide, or a touch screen
+  (`pointer: coarse`) at most `500px` tall, which is a phone on its side, takes the phone layout.
+  In this file `<=768px` and "a phone" name that switch, and "from `769px`" its exact opposite:
+  wider than `768px` and either a mouse or taller than `500px`. A tablet (`1180x820`) and a short
+  desktop window worked by a mouse keep the wide layout. The code names it once (`PHONE_QUERY`,
+  `WIDE_QUERY`, `lib/useMediaQuery.ts`) and each stylesheet's `@media` writes it out whole, which
+  `src/conventions.test.ts` checks. The Claude and Codex iPhone apps keep their phone layout on a
+  phone turned on its side; a docked sidebar there left the workspace list one row tall.
 - The header is one line at every width. Below `769px`, left to right: the drawer toggle; the
   flexible context, agent mark and title (it opens the workspace's tabs on a phone) then the
   PC › workspace › folder crumb; the Chat/Terminal switch; the connection chip while the bridge is
@@ -1163,7 +1172,7 @@ Alert rows of the table above from the `--droplet-*` roles in `src/styles.css`.
   focused. The chosen width is kept per device (`ovis:sidebar-width`) and written as
   `--sidebar-user-w` on `.app`; the sidebar and its top row in the header both read
   `--sidebar-shown-w`. A phone's drawer keeps `--sidebar-w`.
-- The sidebar keeps its width on desktop until its edge is dragged, and is a `<=768px` drawer. The desktop collapse removes its
+- The sidebar keeps its width on desktop until its edge is dragged, and is a phone's drawer (`<=768px`, or a phone on its side: Shell, above). The desktop collapse removes its
   column; the drawer uses a scrim and keeps safe-area insets. Settings → Appearance → **Show the sidebar on hover** (#2588;
   off by default, this device's choice) follows the Claude desktop app's collapsed sidebar, on the existing toggle rather
   than an edge strip: a mouse resting `150ms` on the toggle of a collapsed sidebar shows it as `.sidebar.is-peek`, fixed
@@ -2492,8 +2501,8 @@ Alert rows of the table above from the `--droplet-*` roles in `src/styles.css`.
   `--control-h` plus twice `--space-3` tall, and the seam between the panes (`--divider`) runs
   from the window's top.
   - The rail (`nav.inbox-rail`, named **Inbox mode**; InboxRail.tsx) is one column of icon
-    buttons at the column's start. It is drawn only from 769px: a phone, and any window under
-    769px, never has one and keeps its list's own controls. It is as wide as the band is tall
+    buttons at the column's start. It is drawn only from 769px (Shell, above): a phone, upright or
+    on its side, and any window under 769px never has one and keeps its list's own controls. It is as wide as the band is tall
     (`--inbox-rail-w: var(--inbox-zone-h)`: 58px with a mouse, 68px under a coarse pointer,
     where its buttons are `--touch-target`), so its first button stands in a square cell on the
     band's centre line, with the list's top controls and the thread's chip. Its surface is the
@@ -2524,7 +2533,7 @@ Alert rows of the table above from the `--droplet-*` roles in `src/styles.css`.
     insets. A button answers from the window's start edge to the rail's end and half the gap
     above and below it, through an expander that draws nothing; the first reaches the window's
     top and the last its foot. Its tooltip is the native `title`. In a window too short for its
-    buttons (a phone on its side) the rail scrolls by itself, with no scrollbar drawn, so its
+    buttons (a short window worked by a mouse) the rail scrolls by itself, with no scrollbar drawn, so its
     last button is still reached; nothing in it is squeezed.
   - The count is a button of its own: lucide `CircleHelp` under the app's waiting pill
     (`.header-more-dot.is-waiting[data-count]`), which hangs on the glyph's top end corner and
@@ -2571,10 +2580,10 @@ Alert rows of the table above from the `--droplet-*` roles in `src/styles.css`.
     pointer, whose controls are 44px) the row gives way, in this order: its side insets, down
     to the rows' own `--space-3`; its gaps, down to none; then its controls, which shrink
     together and stay round, their glyphs at their size, never under `--pointer-target`
-    (24px). The last step is the one place a control under a finger is smaller than
-    `--touch-target`: a phone on its side, whose side safe area the rail takes out of the
-    column, with the sidebar at its least width leaves a list of about 112px to 124px, and
-    the other way to fit three controls there is to draw one over the rail. Down to that
+    (24px). The last step would be the one place a control under a finger is smaller than
+    `--touch-target`: a touch screen wide enough for the rail whose side safe areas narrow the
+    column, with the sidebar at its least width; the other way to fit three controls there is to
+    draw one over the rail. A phone on its side has no rail (Shell, above). Down to that
     least size the controls are inside the list and none stands over another; an open search
     field gives up its room before its button shrinks, down to its own insets (its start
     padding and its clear button's room), under which it could not be drawn beside the

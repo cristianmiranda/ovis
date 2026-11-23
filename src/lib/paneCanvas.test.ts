@@ -58,7 +58,7 @@ describe("the pane a tab shows alone", () => {
 
 describe("the compact-height tab strip", () => {
   it("leaves out only a lone tab through the 700px phone-height ceiling", () => {
-    expect(CRAMPED_QUERY).toBe("(max-width: 768px) and (max-height: 700px)");
+    expect(CRAMPED_QUERY).toBe("(max-width: 768px) and (max-height: 700px), (pointer: coarse) and (max-height: 500px) and (max-height: 700px)");
     expect(tabRowHidden(true, 1, false)).toBe(true);
     expect(tabRowHidden(true, 2, false)).toBe(false);
     expect(tabRowHidden(false, 1, false)).toBe(false);

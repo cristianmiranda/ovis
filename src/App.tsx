@@ -73,7 +73,7 @@ import { usePaneLocked } from "./lib/paneLocks.ts";
 import { useHiddenMachines, useShownMachines } from "./lib/hiddenMachines.ts";
 import { formatKeys, shortcutDisplayKeys, useShortcuts } from "./lib/shortcuts.ts";
 import { useHerdrPrefixKeys } from "./lib/herdrKeys.ts";
-import { useMediaQuery } from "./lib/useMediaQuery.ts";
+import { PHONE_QUERY, useMediaQuery } from "./lib/useMediaQuery.ts";
 import { useAnnouncedText } from "./lib/useAnnouncedText.ts";
 import { CRAMPED_QUERY, paneContextPress, soloPane, tabRowHidden } from "./lib/paneCanvas.ts";
 import { useTabSheet } from "./lib/useTabSheet.ts";
@@ -758,7 +758,7 @@ export function App() {
       },
       toggleSidebar: () => {
         if (inMode) return;
-        if (window.matchMedia("(max-width: 768px)").matches) setDrawerOpen((open) => !open);
+        if (window.matchMedia(PHONE_QUERY).matches) setDrawerOpen((open) => !open);
         else setSidebarCollapsed((collapsed) => !collapsed);
       },
       openSidebarFilter: () => { if (!inMode) openSidebarFilter(); },
@@ -892,13 +892,13 @@ export function App() {
     : [...modeLeadItems, ...modeThreadItems.map((item, index) => index === 0 ? { ...item, divider: true } : item), ...modeEndItems];
 
   const chatShown = !inbox.shown && showsChat(selectedPane, view);
-  // From 769px with one pane in view the header is one row, a browser's tab strip: the workspace's tabs and +,
+  // On a wide screen (WIDE_QUERY) with one pane in view the header is one row, a browser's tab strip: the workspace's tabs and +,
   // then the lens switch, Files and More (styles.css .header-tabs, THIRD_PARTY_NOTICES.md).
   const phoneTabRow = tabsInHeader && !inbox.shown && !inMode;
   const workspaceTabCount = selectedPane ? snapshot?.tabs.filter((tab) => tab.workspace_id === selectedPane.workspace_id).length ?? 0 : 0;
   const classicStripInHeader = (wideScreen ? !splitOn && !tabsInHeader : tabsInHeader) && !guideShown && snapshot !== null && selectedPane !== null && selectedWorkspace !== null;
   const stripInHeader = classicStripInHeader && !inMode;
-  // from 769px with a mouse the pane column ends in the Herdr app's status bar: where the pane is, its branch,
+  // on a wide screen with a mouse the pane column ends in the Herdr app's status bar: where the pane is, its branch,
   // the connection.
   const statusBarShown = wideScreen && keyboardLikely && selectedPane !== null && crumb !== null && !guideShown && !inMode;
   const waitingDot = waitingInMore && !statusBarShown && !inboxWide;
