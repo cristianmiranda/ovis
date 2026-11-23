@@ -1348,7 +1348,9 @@ Alert rows of the table above from the `--droplet-*` roles in `src/styles.css`.
 
 ### Field (`.field`, `.input`, `.select`)
 - Stacked uppercase label, optional hint and `--bg-input` field. Desktop fields use `--fs-sm`;
-  small-screen fields retain `--fs-input` to avoid focus zoom.
+  small-screen fields rest at the interface size (`--fs-md`), like the labels beside them. On iOS
+  only, a text field grows to at least `--fs-input` while it is pressed or focused, and a select
+  while focused (`src/lib/viewport.ts`, `.input[data-armed]`), so Safari does not zoom the page.
 - A focused field draws one line. On `:focus-visible` that is the shared offset ring (`--ring`,
   `--ring-offset`) and the field's own border stays as it was: its resting colour, the ink of
   `prefers-contrast: more`, or an invalid access-gate field's `--status-blocked`. It never turns
