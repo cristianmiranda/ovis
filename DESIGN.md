@@ -2314,10 +2314,11 @@ Alert rows of the table above from the `--droplet-*` roles in `src/styles.css`.
   agents, or the chat of the pane its address names. More has Back to Ovis."
 - Brief, the list on a phone. Primary action: opening a row; no control is drawn as primary.
   Priorities: the agents that need the user, first and one step stronger; then each agent's
-  name and words; then search. Left out on purpose: a title, filter pills, state chips, counts,
-  a place line, rules between rows, a labelled floating button, the brand. Required content:
-  every agent's row with its name, state and words; search; the four state filters; New
-  workspace; More with Back to Ovis; the three empty lines; the rows of a PC that is away.
+  name and words; then search; then the small **Agents** title. Left out on purpose: a large
+  title, filter pills, state chips, counts, a place line, rules between rows, a labelled
+  floating button, the brand, a Back button. Required content: every agent's row with its name,
+  state and words; search; the four state filters; New workspace; More with Back to Ovis; the
+  title; the three empty lines; the rows of a PC that is away.
 - Brief, the wide layout. Primary action: opening a row, and in the thread the composer's Send
   as in the classic shell; no button of the rail is drawn as primary. Priorities: the open
   thread; the list, with who needs the user; the rail, the mode's ways out and around and the
@@ -2335,18 +2336,23 @@ Alert rows of the table above from the `--droplet-*` roles in `src/styles.css`.
   that needs one of them does nothing there (a new tab, renaming a tab, a split, a zoom,
   closing the pane, the sidebar and its filter); the classic shell has them again once the
   mode is left.
-- The list (InboxList.tsx) is every agent pane of every PC the device shows. It has no title,
-  no heading and no brand: its section is named for a screen reader (`aria-label`, "Agent
-  inbox") and nothing drawn says what the list is, but for the wide list's search field, whose
-  placeholder says its scope (**Search agents**, below).
+- The list (InboxList.tsx) is every agent pane of every PC the device shows. Its section is
+  named for a screen reader (`aria-label`, "Agent inbox", the name its ways in and the rail's
+  button give it). On a phone's screen it draws one small title, **Agents** (`.inbox-title`, an
+  `h1`, the Agents list's own word), as the Codex and Claude phone apps title their chat list;
+  the wide list draws none (the rail and the thread say where the user is), and no width draws
+  a brand. The wide list's search field's placeholder says its scope (**Search agents**, below).
 - On a phone, and in any window under 769px, the list is the screen: one flat `--bg` surface
   from the top safe area down, with no header bar and no rule. Two round controls float at its
   top, `--space-2` under the top safe area (`--inbox-top-gap`: they touch no edge, under a
   status bar or with none over them, as in a browser tab or a narrow desktop window) and
   `calc(var(--space-4) + var(--space-1) / 2)` (18px) from the side edges: **More** at the
   start, **New workspace** (a plus; with several connected PCs it opens the sheet of PCs, a
-  `RowMenu`) at the end; the header's note (Link copied, Opening link…) stands between them.
-  The first row starts `--space-4` under them. At its foot, `--space-3` above the bottom safe
+  `RowMenu`) at the end; the title stands centred between them, `--fs-lg` `--fw-semibold`
+  `--text-strong` on one line (an ellipsis past the controls' inner edges), with no bar and no
+  rule under it, and steps aside (`visibility: hidden`) while the header's note (Link copied,
+  Opening link…) or the connection's word stands between them in its place. The way out stays
+  More's **Back to Ovis**: there is no Back button. The first row starts `--space-4` under them. At its foot, `--space-3` above the bottom safe
   area, float the state filter's round button and the search pill, `--space-3` apart. The rows
   scroll under both rows of controls and end clear of them; a row the keyboard brings into
   view stops clear of them too (`scroll-padding`). A watching device, or one with no connected
@@ -2480,7 +2486,7 @@ Alert rows of the table above from the `--droplet-*` roles in `src/styles.css`.
   round pill on the raised surface (`--bg-elevated`, the hairline `--border`,
   `--shadow-card`), centred between the two controls on their centre line. Nothing is
   drawn while the connection has nothing to say, and on a phone the header's note, which
-  stands in the same place, goes first. The word is the one of the stream that feeds the list's
+  stands in the same place, goes first; the list's title steps aside for either. The word is the one of the stream that feeds the list's
   rows (the roster's event stream, lib/useMachineRoster.ts `rosterConnection`), whether or not a
   pane is mounted under the list, a cold load of the mode's own address included: Reconnecting…
   while it is lost after the page had it, Connected for a moment when it is back. A thread says

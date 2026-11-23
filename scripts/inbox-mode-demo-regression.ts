@@ -217,7 +217,7 @@ const DONE = "w1H:p1";
 const IDLE = ["w1J:p1", "w1K:p1", "w1L:p1"];
 const BLOCKED_TITLE = "Guard the export button";
 const WORKING_TITLE = "Idempotent payments";
-const ABSENT = [".inbox-filters", ".inbox-chip", ".inbox-place", ".inbox-title", ".inbox-dot", ".tab-strip", ".context-tabs", ".view-switch", ".status-bar", "#drawer-toggle", "#workspace-drawer", ".sidebar-toggle", ".pane-split.is-split"];
+const ABSENT = [".inbox-filters", ".inbox-chip", ".inbox-place", ".inbox-dot", ".tab-strip", ".context-tabs", ".view-switch", ".status-bar", "#drawer-toggle", "#workspace-drawer", ".sidebar-toggle", ".pane-split.is-split"];
 const PHONE = { width: 390, height: 844 };
 const app = mkdtempSync(join(tmpdir(), "ovis-inbox-mode-"));
 const evidence = process.env["UI_EVIDENCE_DIR"];
@@ -488,11 +488,26 @@ try {
           await summaryShown(page);
           await appFaces(page);
           for (const selector of ABSENT) assert.equal(await page.locator(selector).filter({ visible: true }).count(), 0, `the mode draws no ${selector}`);
-          assert.equal(await page.locator(".mode-inbox :is(h1, h2, h3, h4, h5, h6, [role='heading'])").count(), 0, "the list has no heading");
+          assert.deepEqual(await page.locator(".mode-inbox :is(h1, h2, h3, h4, h5, h6, [role='heading'])").evaluateAll((nodes) => nodes.map((node) => [node.tagName, node.className, node.textContent])), [["H1", "inbox-title", "Agents"]], "the list's one heading is its small Agents title");
           assert.equal(await page.locator(".mode-inbox").getAttribute("aria-label"), "Agent inbox");
           assert.equal(await page.locator(".mode-inbox .inbox-top button").count(), 2, "exactly two controls at the top");
           const { width, height } = page.viewportSize()!;
           const [more, add, filter, search] = await Promise.all([box(page, ".inbox-more"), box(page, ".inbox-add"), box(page, ".inbox-filter-toggle"), box(page, ".inbox-search-input")]);
+          const title = await page.locator(".mode-inbox .inbox-title").evaluate((node) => {
+            const r = node.getBoundingClientRect();
+            const style = getComputedStyle(node);
+            const probe = document.createElement("span");
+            probe.style.cssText = "color: var(--text-strong); font-size: var(--fs-lg); font-weight: var(--fw-semibold)";
+            node.parentElement!.append(probe);
+            const want = getComputedStyle(probe);
+            const drawn = { want: [want.color, want.fontSize, want.fontWeight] };
+            probe.remove();
+            return { ...drawn, got: [style.color, style.fontSize, style.fontWeight], visibility: style.visibility, centre: r.left + r.width / 2, middle: r.top + r.height / 2, lines: Math.round(r.height / Number.parseFloat(style.lineHeight)) };
+          });
+          assert.deepEqual(title.got, title.want, "the title is --text-strong at --fs-lg, --fw-semibold");
+          assert.deepEqual([title.visibility, title.lines], ["visible", 1], "the title is shown on one line");
+          near(title.centre, width / 2, 1, "the title is centred between the two top controls");
+          near(title.middle, more.y + more.h / 2, 1, "the title stands on the round controls' centre line");
           for (const [name, control] of [["More", more], ["New workspace", add], ["the filter", filter]] as const) assert.deepEqual([control.w, control.h], [44, 44], `${name} is 44 by 44`);
           near(more.x, 18, 2, "More's inset"); near(width - add.right, 18, 2, "New workspace's inset");
           near(more.y, 8, 0.5, "More under the top edge"); near(add.y, 8, 0.5, "New workspace under the top edge");
@@ -528,7 +543,7 @@ try {
           assert.match(drawn[2]!.time ?? "", /^(<1m|\d+[mhd])$/, "the done row says how long it has been done");
           assert.ok(drawn[2]!.datetime !== null && !Number.isNaN(Date.parse(drawn[2]!.datetime)), "the done row's time carries a datetime");
           await shot(page, `inbox-mode-list-390-${theme}.png`);
-          pass(2, "the list: no title and nothing the mode leaves out, two 44px round controls at the top and a round filter and a search pill at the foot on their insets, six 80px rows with a 44px mark, a 16px name and one 15px line, the waiting row first with its question, each state's own mark and none on the ready rows");
+          pass(2, "the list: the small Agents title centred between two 44px round controls at the top, nothing the mode leaves out and a round filter and a search pill at the foot on their insets, six 80px rows with a 44px mark, a 16px name and one 15px line, the waiting row first with its question, each state's own mark and none on the ready rows");
 
           await openSheet(page, ".inbox-filter-toggle");
           assert.equal(await page.locator('.row-sheet [role="menu"] [role="menuitemradio"]').count(), 4, "the four filters are one menu of radio items");
@@ -1838,6 +1853,7 @@ try {
               assert.ok(drawn.discMiddle !== null, "a round control stands in a phone's top row");
               near(drawn.middle, drawn.discMiddle, 0.5, "the pill stands on the round controls' centre line");
               near(drawn.centre, viewport.width / 2, 1, "the line is centred between the two top controls");
+              assert.equal(await page.locator(".mode-inbox .inbox-title").evaluate((node) => getComputedStyle(node).visibility), "hidden", "the title steps aside while the line is drawn in its place");
             }
             // Connected is said for two seconds: caught in the mutation that draws it, so a slow run cannot miss it. A
             // connection that never comes back fails the step by a deadline, and the page's observer goes either way
@@ -1861,7 +1877,10 @@ try {
               assert.deepEqual([back.dot, back.name], ["inbox-rail-dot is-connected", "Back to main view"], "back, the rail's monitor draws the connected dot for as long as the word is said");
               await dot.waitFor({ state: "detached" });
               assert.equal(await line.count(), 0, "and the wide list drew no line at any point");
-            } else await line.waitFor({ state: "detached" });
+            } else {
+              await line.waitFor({ state: "detached" });
+              assert.equal(await page.locator(".mode-inbox .inbox-title").evaluate((node) => getComputedStyle(node).visibility), "visible", "the title is back once the line is gone");
+            }
             console.log(wide
               ? `PASS on ${at} the rail's monitor says Reconnecting… in its name, its tooltip and its status line, and draws its pulsing dot, while the connection is lost on the list alone; Connected with the connected dot when it is back, and then no dot; the wide list draws no line`
               : `PASS on ${at} the list says Reconnecting… in one quiet line (a round pill on the round controls' surface and centre line) while the connection is lost, Connected when it is back, and then nothing`);
@@ -2003,7 +2022,11 @@ try {
               if (viewport.width >= 769) {
                 await page.locator(".inbox-unchosen").waitFor();
                 assert.equal(await page.locator('.mode-inbox .inbox-row[aria-current="true"]').count(), 0, "no row is the open one");
-              } else assert.equal(await page.locator(".app-header").count(), 0, "the list is the screen: no thread's header");
+                assert.equal(await page.locator(".mode-inbox .inbox-title").count(), 0, "the wide list has no title");
+              } else {
+                assert.equal(await page.locator(".app-header").count(), 0, "the list is the screen: no thread's header");
+                assert.equal(await page.locator(".mode-inbox .inbox-title").evaluate((node) => getComputedStyle(node).visibility), "hidden", "the title steps aside while the note stands in its place");
+              }
               await addressIs(page, { app: "inbox", pane: null }, "the address is the list's");
               console.log(`PASS an address of the mode whose pane is gone (${gone.what}) opens the list on ${at}, under the note "${gone.note}"`);
             }, viewport);

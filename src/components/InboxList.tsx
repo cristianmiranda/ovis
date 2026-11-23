@@ -315,6 +315,7 @@ export function InboxList({ ref, machines, activity, watching, wide, filter, onF
           {newButton}
         </> : <>
           {moreButton}
+          <h1 className="inbox-title">{t("Agents")}</h1>
           {note}
           {connectionLine}
           {newButton}

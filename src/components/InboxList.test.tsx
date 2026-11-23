@@ -202,10 +202,15 @@ describe("InboxList", () => {
     expect(keys.length).toBeGreaterThan(1);
   });
 
-  it("has no heading and names the list for a screen reader", async () => {
+  it("titles a phone's list Agents in its one heading, names the list for a screen reader, and draws no title beside a thread", async () => {
+    const headings = (root: ReactTestInstance) => root.findAll((node) => typeof node.type === "string" && /^h[1-6]$/.test(node.type)).map((node) => [node.type, node.props.className, text(node)]);
     const root = await draw(roster());
-    expect(root.findAll((node) => typeof node.type === "string" && /^h[1-6]$/.test(node.type))).toEqual([]);
+    expect(headings(root)).toEqual([["h1", "inbox-title", "Agents"]]);
+    expect(byClass(root, "inbox-top")[0]!.findAll((node) => node.props.className === "inbox-title").length).toBe(1);
     expect(root.findByType("section").props["aria-label"]).toBe("Agent inbox");
+    phone = false;
+    const wide = await draw(roster(), { wide: true });
+    expect(headings(wide)).toEqual([]);
   });
 
   it("draws a row as two lines, a name and one line of words, with no chip, no place line and no button inside it", async () => {
@@ -865,12 +870,12 @@ describe("InboxList", () => {
     expect(nodes.get("inbox-scroll")!.scrollTop).toBe(167);
   });
 
-  it("on a phone draws More and New workspace at its top with the shell's note between them, and the filter and the search at its foot", async () => {
+  it("on a phone draws More and New workspace at its top with the title and the shell's note between them, and the filter and the search at its foot", async () => {
     const pressed: unknown[] = [];
     const root = await draw(roster(), { more: { label: "More", expanded: false, popup: "dialog", onPress: (node) => pressed.push(node) }, note: <span className="test-note">Link copied</span> });
     const top = byClass(root, "inbox-top")[0]!;
     const classes = (node: ReactTestInstance) => node.findAll((inner) => typeof inner.type === "string" && inner.parent === node).map((inner) => String(inner.props.className).split(" ").find((name) => name.startsWith("inbox-") && name !== "inbox-round") ?? String(inner.props.className));
-    expect(classes(top)).toEqual(["inbox-more", "test-note", "visually-hidden", "inbox-add"]);
+    expect(classes(top)).toEqual(["inbox-more", "inbox-title", "test-note", "visually-hidden", "inbox-add"]);
     expect(classes(byClass(root, "inbox-foot")[0]!)).toEqual(["inbox-filter-toggle", "inbox-search"]);
     const more = byClass(root, "inbox-more")[0]!;
     expect([more.props["aria-label"], more.props["aria-haspopup"], more.props["aria-expanded"]]).toEqual(["More", "dialog", false]);

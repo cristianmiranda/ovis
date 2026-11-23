@@ -61,6 +61,29 @@
   gap: var(--space-2);
 }
 
+.mode-inbox .inbox-top > .inbox-title {
+  position: absolute;
+  inset-block: 0;
+  inset-inline: calc(var(--inbox-gutter) + var(--inbox-control) + var(--space-2));
+  height: fit-content;
+  margin: auto;
+  overflow: hidden;
+  color: var(--text-strong);
+  font-size: var(--fs-lg);
+  font-weight: var(--fw-semibold);
+  letter-spacing: var(--tracking-tight);
+  line-height: var(--lh-tight);
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* the note and the connection's word take the title's place while they are said */
+.mode-inbox .inbox-top:has(> .context, > .inbox-connection) > .inbox-title {
+  visibility: hidden;
+}
+
 .mode-inbox .inbox-top > .inbox-connection {
   position: absolute;
   inset-block: 0;
