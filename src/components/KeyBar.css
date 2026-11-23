@@ -127,7 +127,8 @@
 }
 
 .key:active,
-.key.is-armed {
+.key.is-armed,
+.key[data-key="more"][aria-expanded="true"] {
   background: var(--bg-elevated);
   border-color: var(--accent);
   color: var(--text-strong);
@@ -149,7 +150,8 @@
 }
 
 @media (forced-colors: active) {
-  .key.is-armed {
+  .key.is-armed,
+  .key[data-key="more"][aria-expanded="true"] {
     outline: var(--hairline) solid Highlight;
     outline-offset: calc(-2 * var(--hairline));
   }

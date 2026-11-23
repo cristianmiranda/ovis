@@ -1,5 +1,5 @@
 import { useCallback, useId, useLayoutEffect, useMemo, useRef, useSyncExternalStore, type MouseEvent, type PointerEvent, type ReactNode } from "react";
-import { ChevronDown, ChevronUp, ClipboardPaste, Ellipsis, Keyboard, PanelBottomClose, PanelBottomOpen, Paperclip } from "lucide-react";
+import { ClipboardPaste, Ellipsis, Keyboard, PanelBottomClose, PanelBottomOpen, Paperclip } from "lucide-react";
 
 import "./KeyBar.css";
 
@@ -391,7 +391,7 @@ export function KeyBar({ onKey, onKeyHoldEnd, modifiers, lockedModifiers, onTogg
       }} />}
       {onToggleExpanded && (
         <Key command holdsKeyboard dataKey="more" label={t(expanded ? "Fewer keys" : "More keys")} expanded={expanded} onPress={onToggleExpanded}>
-          {expanded ? <ChevronDown aria-hidden="true" /> : <ChevronUp aria-hidden="true" />}
+          <Ellipsis aria-hidden="true" />
         </Key>
       )}
     </div>
