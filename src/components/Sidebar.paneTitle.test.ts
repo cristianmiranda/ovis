@@ -24,3 +24,14 @@ describe("a pane whose terminal title is empty", () => {
     expect(displayPaneTitle(untitled({ terminal_title: "vim notes.md" }))).toBe("vim notes.md");
   });
 });
+
+describe("a shell's user@host:path title", () => {
+  it("is named by the path's last folder in the header, the browser tab and an alert, with or without a user", () => {
+    for (const title of ["me@beast:/home/me/.cache/ovis-tmp/mobile-qa", "@beast:/home/me/.cache/ovis-tmp/mobile-qa", "me@beast: ~/.cache/ovis-tmp/mobile-qa"]) {
+      const pane = untitled({ terminal_title: title, terminal_title_stripped: title });
+      expect(displayPaneTitle(pane)).toBe("mobile-qa");
+      expect(tabPaneTitle(pane)).toBe("mobile-qa");
+      expect(alertPaneTitle(pane)).toBe("mobile-qa");
+    }
+  });
+});

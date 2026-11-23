@@ -22,7 +22,8 @@ export function codexThreadTitle(title: string): string {
   return at > 0 && title.slice(0, at).trim() !== "" ? title.slice(0, at) : title;
 }
 
-export const SHELL_PREFIX = /^[^:@\s]+@[^:@\s]+:/;
+/** bash's `$USER@host:` title prefix; a shell started without USER titles itself `@host:` */
+export const SHELL_PREFIX = /^[^:@\s]*@[^:@\s]+:/;
 /** Herdr's agent glyph and spinner are already represented by the row mark and badge. */
 export const AGENT_CHROME = /^π\s*[^\p{L}\p{N}\s]?\s*/u;
 

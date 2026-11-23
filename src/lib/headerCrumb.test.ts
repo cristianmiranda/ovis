@@ -26,6 +26,14 @@ it("does not repeat the workspace when the pane title is the workspace", () => {
   const crumb = headerCrumb({ ...base, title: "checkout-api", cwd: "/home/me/checkout-api" });
   expect(crumb.fullContext).toBe("workstation · checkout-api · /home/me/checkout-api");
   expect(crumb.tooltip).toBe(crumb.fullContext);
+  expect(crumb.line).toEqual([{ key: "machine", text: "workstation" }]);
+  expect(headerCrumb({ ...base, machineCount: 1, title: "checkout-api", cwd: "/home/me/checkout-api" }).line).toEqual([]);
+  expect(headerCrumb({ ...base, machineCount: 1, title: "checkout-api", cwd: "/home/me/retry-flag" }).line).toEqual([{ key: "folder", text: "retry-flag" }]);
+});
+
+it("lines up the PC, the workspace and the folder under a title that says none of them", () => {
+  expect(headerCrumb({ ...base, cwd: "/home/me/retry-flag" }).line.map((part) => part.text)).toEqual(["workstation", "checkout-api", "retry-flag"]);
+  expect(headerCrumb({ ...base, machineCount: 1, cwd: "/tmp/herdr-demo/checkout-api" }).line.map((part) => part.text)).toEqual(["checkout-api"]);
 });
 
 it("counts the PC name as said only while the line shows it", () => {

@@ -58,6 +58,9 @@ it("strips a Codex title to its thread for a row, and keeps the folder for an al
   expect(stripPaneChrome("Respond to greeting | worktree-rapid-valley...", "codex", true)).toBe("Respond to greeting | worktree-rapid-valley...");
   expect(stripPaneChrome("Fix the build | api", "claude")).toBe("Fix the build | api");
   expect(stripPaneChrome("me@host:~/work | notes", null)).toBe("~/work | notes");
+  expect(stripPaneChrome("@host:/srv/api", null)).toBe("/srv/api");
+  expect(stripPaneChrome("@me fix the build", null)).toBe("@me fix the build");
+  expect(stripPaneChrome("@/Users/me/shot.png Fix footer: now", "claude")).toBe("@/Users/me/shot.png Fix footer: now");
 });
 
 it("drops an omp title's glyph and spinner for a row, and keeps them for the browser tab (#2568)", () => {

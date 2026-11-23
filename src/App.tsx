@@ -1,4 +1,4 @@
-import { type CSSProperties, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type CSSProperties, Fragment, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Bell, ChevronDown, ChevronLeft, Eye, Plus, CircleHelp, Ellipsis, FolderOpen, Inbox, Link, Menu, MessageCircle, MessageSquare, PanelLeft, PanelsTopLeft, Search, Settings as SettingsGlyph, SquareTerminal, Target, TextSearch, X } from "lucide-react";
 
 import type { HerdrPane, PaneDirection } from "../shared/protocol.ts";
@@ -569,6 +569,7 @@ export function App() {
   const crumb = selectedPane && selectedTitle !== null
     ? headerCrumb({ machine: selectedMachine?.name ?? selectedMachineId, machineCount: machines.length, workspace: selectedWorkspace?.label ?? selectedPane.workspace_id, title: selectedTitle, cwd: selectedPane.cwd })
     : null;
+  const crumbParts = crumb?.line ?? [];
   const tabPlace = snapshot ? tabPosition(snapshot, selectedPaneId) : null;
   const position = tabPlace && { ...tabPlace, words: t("Tab {index} of {count}", { index: tabPlace.index, count: tabPlace.count }) };
 
@@ -1073,19 +1074,14 @@ export function App() {
                 <ChevronDown aria-hidden="true" />
               </button>}
             </div>
-            <div className={`context-sub${headerConnection === null ? "" : ` context-connection is-${headerConnection}`}`}>
-              {viewOnly(selectedMachineId) && !statusBarShown && <><span className="context-watch">{t("View only")}</span><span className="context-sep" aria-hidden="true">·</span></>}
-              {headerConnection !== null ? <span>{connectionWord(headerConnection, t)}</span> : <>
-                {crumb.showMachine && <><span className="machine-context-name">{crumb.machine}</span><span className="context-sep" aria-hidden="true">›</span></>}
-                <span>{crumb.workspace}</span>
-                {crumb.folder !== null && (
-                  <>
-                    <span className="context-sep" aria-hidden="true">›</span>
-                    <span>{crumb.folder}</span>
-                  </>
-                )}
-              </>}
-            </div>
+            {(headerConnection !== null || crumbParts.length > 0 || (viewOnly(selectedMachineId) && !statusBarShown)) && <div className={`context-sub${headerConnection === null ? "" : ` context-connection is-${headerConnection}`}`}>
+              {viewOnly(selectedMachineId) && !statusBarShown && <><span className="context-watch">{t("View only")}</span>{(headerConnection !== null || crumbParts.length > 0) && <span className="context-sep" aria-hidden="true">·</span>}</>}
+              {headerConnection !== null ? <span>{connectionWord(headerConnection, t)}</span>
+                : crumbParts.map((part, index) => <Fragment key={part.key}>
+                  {index > 0 && <span className="context-sep" aria-hidden="true">›</span>}
+                  <span className={part.key === "machine" ? "machine-context-name" : undefined}>{part.text}</span>
+                </Fragment>)}
+            </div>}
             {headerConnection === null && session !== null && sessionLines !== null && (sessionShort.length > 0 || session.goal !== null) && (
               <div className="context-sub context-session" title={[sessionLines.totals, sessionLines.goal].filter((line) => line !== null).join("\n")}>
                 {sessionShort.length > 0 && <span>{sessionShort.join(" · ")}</span>}
