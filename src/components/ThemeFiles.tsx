@@ -3,7 +3,6 @@ import { FileUp, Trash2 } from "lucide-react";
 import { MAX_CUSTOM_THEMES, MAX_THEME_FILE_BYTES, nameKey, readThemeFile, withImported, withoutTheme, type CustomTheme, type ThemeFileError } from "../lib/customThemes.ts";
 import { useT, type Translate } from "../lib/i18n.ts";
 import { useSettings } from "../lib/settings.ts";
-import type { Mode } from "../lib/themes.ts";
 import { ExternalLink } from "../lib/externalLink.ts";
 import { SettingsRow } from "./SettingsControls.tsx";
 import "./ThemeFiles.css";
@@ -29,21 +28,20 @@ export function themeLabel(t: Translate, theme: CustomTheme, themes: readonly Cu
   return themes.some((entry) => entry.id !== theme.id && nameKey(entry.name) === key) ? `${theme.name} · ${sidesOf(t, theme)}` : theme.name;
 }
 
-export function ThemeFiles({ onImported }: { onImported: (sides: readonly Mode[]) => void }) {
+export function ThemeFiles() {
   const { settings, update } = useSettings();
   const t = useT();
   const picker = useRef<HTMLInputElement>(null);
   const [status, setStatus] = useState<{ text: string; failed: boolean } | null>(null);
   const custom = settings.customThemes;
 
-  const [pending, setPending] = useState<{ theme: CustomTheme; sides: readonly Mode[] } | null>(null);
+  const [pending, setPending] = useState<CustomTheme | null>(null);
   useEffect(() => {
     if (pending === null) return;
     setPending(null);
-    if (!custom.themes.some((entry) => entry.id === pending.theme.id)) return setStatus({ text: refusal(t, "full"), failed: true });
-    onImported(pending.sides);
-    setStatus({ text: t("Imported {name}.", { name: pending.theme.name }), failed: false });
-  }, [pending, custom, onImported, t]);
+    if (!custom.themes.some((entry) => entry.id === pending.id)) return setStatus({ text: refusal(t, "full"), failed: true });
+    setStatus({ text: t("Imported {name}.", { name: pending.name }), failed: false });
+  }, [pending, custom, t]);
 
   const add = async (file: File): Promise<void> => {
     const fail = (error: ThemeFileError | "full", key?: string): void => setStatus({ text: refusal(t, error, key), failed: true });
@@ -53,12 +51,11 @@ export function ThemeFiles({ onImported }: { onImported: (sides: readonly Mode[]
     const result = readThemeFile(text, file.name.replace(/\.[^.]+$/, ""));
     if ("error" in result) return fail(result.error, result.key);
     const { theme } = result;
-    const sides: Mode[] = theme.dark && theme.light ? ["dark", "light"] : [theme.dark ? "dark" : "light"];
     update((current) => {
       const next = withImported(current.customThemes, theme);
       return next === null ? {} : { customThemes: next };
     });
-    setPending({ theme, sides });
+    setPending(theme);
   };
 
   return (

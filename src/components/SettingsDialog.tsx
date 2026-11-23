@@ -35,7 +35,7 @@ import { TerminalCommandRow } from "./TerminalCommandRow.tsx";
 import { onSettingsHistory, recordSettings, settingsEntry, settingsLevels, type SettingsLevel } from "../lib/settingsHistory.ts";
 import { ThemeFiles, themeLabel } from "./ThemeFiles.tsx";
 import { THEME_NAMES, ThemeCard } from "./ThemeCard.tsx";
-import { ChipToggles, SettingsBare, Segmented, SettingsFold, SettingsGroup, SettingsQuery, SettingsRow, SettingsSelect, Stepper, Toggle, settingsQueryWords, useSettingsRowSentence } from "./SettingsControls.tsx";
+import { ChipToggles, SettingsBare, Segmented, SettingsFold, SettingsGroup, SettingsQuery, SettingsRow, SettingsSelect, Stepper, Toggle, matchesSettingsQuery, settingsQueryWords, useSettingsRowSentence } from "./SettingsControls.tsx";
 import { PcLoadSetting } from "./MachineStats.tsx";
 import { FONT_FAMILY_MAX_CHARS, sanitizeFontFamily } from "../lib/fontFamily.ts";
 import { UI_FONT_MAX, UI_FONT_MIN, UI_FONT_PRESET_FAMILY, uiFontPreset, type UiFontPreset } from "../lib/typography.ts";
@@ -338,12 +338,22 @@ function SidebarRowsPreview({ rows }: { rows: "one" | "two" }) {
 }
 
 function ThemePicker() {
-  const { settings, update } = useSettings();
-  const t = useT();
+  const { settings } = useSettings();
   const systemDark = useMediaQuery("(prefers-color-scheme: dark)");
   const drawn: Mode = settings.theme === "system" ? (systemDark ? "dark" : "light") : settings.theme;
-  const [picked, setPicked] = useState<Mode | null>(null);
-  const side = picked ?? drawn;
+  return (
+    <>
+      <ThemeSide side={drawn} />
+      <ThemeSide side={drawn === "dark" ? "light" : "dark"} />
+      <ThemeFiles />
+    </>
+  );
+}
+
+function ThemeSide({ side }: { side: Mode }) {
+  const { settings, update } = useSettings();
+  const t = useT();
+  const words = useContext(SettingsQuery);
   const strip = useRef<HTMLDivElement>(null);
   const [ends, setEnds] = useState({ start: true, end: true });
   const custom = settings.customThemes;
@@ -353,6 +363,9 @@ function ThemePicker() {
   const own = THEME_IDS.filter((id) => rowFor(id, side).mode === side);
   const others = THEME_IDS.filter((id) => rowFor(id, side).mode === other);
   const label = t(side === "dark" ? "Dark theme" : "Light theme");
+  const description = t(side === "dark" ? "The colors used in dark mode. Theme, above, sets when dark mode is used." : "The colors used in light mode. Theme, above, sets when light mode is used.");
+  const condition = t(side === "dark" ? "Shown in dark mode" : "Shown in light mode");
+  const hidden = words.length > 0 && !matchesSettingsQuery(words, label, description, condition);
   const measure = useCallback(() => {
     const el = strip.current;
     if (el) setEnds({ start: el.scrollLeft <= 1, end: el.scrollLeft + el.clientWidth >= el.scrollWidth - 1 });
@@ -363,14 +376,15 @@ function ThemePicker() {
     const shown = el && card && card.offsetLeft >= el.scrollLeft && card.offsetLeft + card.offsetWidth <= el.scrollLeft + el.clientWidth;
     if (el && card && !shown) el.scrollLeft = card.offsetLeft - (el.clientWidth - card.offsetWidth) / 2;
     measure();
-  }, [side, current, measure]);
+  }, [current, hidden, measure]);
   useEffect(() => {
     const el = strip.current;
     if (!el) return;
     const observer = new ResizeObserver(measure);
     observer.observe(el);
     return () => observer.disconnect();
-  }, [measure]);
+  }, [hidden, measure]);
+  if (hidden) return null;
   const pick = (id: ThemeId): void => update((latest) => ({ ...pickTheme(latest, side, id), customThemes: { ...latest.customThemes, [side]: null } }));
   const pickImported = (id: string): void => update((latest) => latest.customThemes.themes.some((entry) => entry.id === id) ? { customThemes: { ...latest.customThemes, [side]: id } } : {});
   const card = (id: ThemeId) => <ThemeCard key={id} card={id} name={t(THEME_NAMES[id])} row={rowFor(id, side)} side={side} checked={current === id} onPick={() => pick(id)} />;
@@ -391,14 +405,13 @@ function ThemePicker() {
   const scroll = (direction: 1 | -1): void => strip.current?.scrollBy({ left: direction * strip.current.clientWidth * 0.8, behavior: "smooth" });
   return (
     <>
-      <SettingsRow icon={Palette} label={label} description={t("The colors used in dark mode and in light mode, one theme for each. Dark and Light on this row only switch which themes you are choosing from; Theme, above, sets the mode.")}
-        condition={<span className="settings-condition">{t("Dark and Light here only switch which themes you choose from.")}</span>} keywords={`${t("Dark theme")} ${t("Light theme")} ${t("Shown in dark mode")} ${t("Shown in light mode")}`} reset={[side === "dark" ? "darkTheme" : "lightTheme"]}
+      <SettingsRow icon={Palette} label={label} description={description} condition={<span className="settings-hint">{condition}</span>} reset={[side === "dark" ? "darkTheme" : "lightTheme"]}
         resetAlso={{ changed: custom[side] !== null, restore: () => update((latest) => ({ customThemes: { ...latest.customThemes, [side]: null } })) }}>
-        <Segmented label={`${t("Dark theme")} · ${t("Light theme")}`} value={side} onChange={setPicked} options={[{ value: "dark", label: t("Dark"), name: t("Show dark themes") }, { value: "light", label: t("Light"), name: t("Show light themes") }]} />
+        {null}
       </SettingsRow>
       <div className="settings-item theme-strip">
         <div className="theme-strip-frame">
-          <div ref={strip} className="theme-cards" role="radiogroup" aria-label={label} onScroll={measure} onKeyDown={step}>
+          <div ref={strip} className="theme-cards" role="radiogroup" aria-label={label} data-overflow-start={ends.start ? undefined : ""} data-overflow-end={ends.end ? undefined : ""} onScroll={measure} onKeyDown={step}>
             {custom.themes.map(importedCard)}
             {custom.themes.length > 0 && <span className="theme-cards-rule" aria-hidden="true" />}
             {own.map(card)}
@@ -409,8 +422,6 @@ function ThemePicker() {
           {!ends.end && <button type="button" className="icon-button theme-strip-arrow is-end" aria-label={t("Later themes")} title={t("Later themes")} tabIndex={-1} onClick={() => scroll(1)}><ChevronRight aria-hidden="true" /></button>}
         </div>
       </div>
-      {/* the side drawn now when the theme has it, so the change shows; its only side otherwise */}
-      <ThemeFiles onImported={(sides) => setPicked(sides.includes(drawn) ? drawn : sides[0]!)} />
     </>
   );
 }

@@ -385,6 +385,31 @@
   .theme-strip-arrow {
     display: none;
   }
+
+  .theme-cards[data-overflow-start],
+  .theme-cards[data-overflow-end] {
+    mask-image: linear-gradient(
+      to right,
+      transparent,
+      currentColor var(--theme-strip-fade-start, 0px),
+      currentColor calc(100% - var(--theme-strip-fade-end, 0px)),
+      transparent
+    );
+  }
+
+  .theme-cards[data-overflow-start] {
+    --theme-strip-fade-start: var(--space-8);
+  }
+
+  .theme-cards[data-overflow-end] {
+    --theme-strip-fade-end: var(--space-8);
+  }
+}
+
+@media (hover: none) and (forced-colors: active) {
+  .theme-cards {
+    mask-image: none;
+  }
 }
 
 .settings-row-icon {

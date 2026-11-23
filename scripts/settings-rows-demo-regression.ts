@@ -676,12 +676,16 @@ async function rowResets(browser: import("playwright-core").Browser, url: string
     const reset = (row: string) => page.getByRole("button", { name: `Restore defaults: ${row}`, exact: true });
     await page.goto(`${url}?settings=appearance`);
     await page.locator(".conn-live").waitFor({ state: "attached" });
-    await page.locator(".theme-cards").waitFor();
+    await page.locator(".theme-cards").first().waitFor();
     const mode = page.getByRole("group", { name: "Theme", exact: true });
+    const strips = () => page.locator(".theme-cards").evaluateAll((nodes) => nodes.map((node) => node.getAttribute("aria-label")));
     await mode.getByRole("button", { name: "Light", exact: true }).click();
-    await page.getByRole("radiogroup", { name: "Light theme", exact: true }).waitFor();
+    await page.waitForFunction(() => document.querySelector(".theme-cards")?.getAttribute("aria-label") === "Light theme");
+    assert.deepEqual(await strips(), ["Light theme", "Dark theme"], "each side has its own labelled strip, the side drawn now first");
     await mode.getByRole("button", { name: "Dark", exact: true }).click();
-    await page.getByRole("radiogroup", { name: "Dark theme", exact: true }).waitFor();
+    await page.waitForFunction(() => document.querySelector(".theme-cards")?.getAttribute("aria-label") === "Dark theme");
+    assert.deepEqual(await strips(), ["Dark theme", "Light theme"], "the strips swap places with the mode");
+    assert.equal(await page.locator(".settings-row:has(.settings-label:text-is('Dark theme')) .segmented, .settings-row:has(.settings-label:text-is('Light theme')) .segmented").count(), 0, "no Dark | Light switch beside a theme row, which read as a second mode switch");
 
     assert.equal(await reset("Terminal font").count(), 0, "no ↺ while the terminal font and size are the defaults");
     await page.getByRole("button", { name: "Increase terminal font size", exact: true }).click();
@@ -703,7 +707,7 @@ async function rowResets(browser: import("playwright-core").Browser, url: string
     await custom.waitFor({ state: "detached" });
     assert.equal(await uiFont.inputValue(), "default", "the select shows Default once the font is put back");
     await page.goto(`${url}?settings=appearance`);
-    await page.locator(".theme-cards").waitFor();
+    await page.locator(".theme-cards").first().waitFor();
     assert.equal(await page.getByLabel("Interface font", { exact: true }).inputValue(), "default", "the font put back stays put back after a reload");
 
     const dark = themeSide(page, "dark");
@@ -742,7 +746,7 @@ async function rowSentences(browser: import("playwright-core").Browser, url: str
   const appearance = async (page: Page, query = ""): Promise<void> => {
     await page.goto(`${url}?settings=appearance${query}`);
     await page.locator(".conn-live").waitFor({ state: "attached" });
-    await page.locator(".theme-cards").waitFor();
+    await page.locator(".theme-cards").first().waitFor();
   };
 
   const desktop = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: "en" });

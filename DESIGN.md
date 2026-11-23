@@ -800,9 +800,15 @@ floor of `--fs-meta` holds at scale 1 and only grows with it.
   and fonts (the interface's, the terminal's and the chat's, each font with its size), density and
   language, then the sidebar. From T3 Code it takes a ↺ beside a row whose value is off its default,
   which puts the row's keys back. Themes are cards in one row that scrolls sideways, each a sidebar
-  and a pane in the theme's own colours (T3 Code's and herdr-app's theme previews; no code taken):
-  Dark and Light pick the side, the side drawn now first, its own kind of theme first and the other
-  kind after a rule, so any theme still goes on either side.
+  and a pane in the theme's own colours (T3 Code's and herdr-app's theme previews; no code taken).
+  Each side has its own labelled row and strip, **Dark theme** and **Light theme**, each with its
+  ↺ and a dim "Shown in dark mode" / "Shown in light mode" line, as VS Code's preferred dark and
+  light color themes and GitHub's day and night themes are two pickers. The side drawn now comes
+  first; in each strip that side's own kind of theme comes first and the other kind after a rule, so
+  any theme still goes on either side. A Dark | Light switch over one strip was dropped: under the
+  Theme mode's Dark | Light | System it read as a second mode switch. Under a finger, where the
+  strip draws no arrows, an edge that can scroll further fades out (`data-overflow-start` and
+  `-end`, the key bar's mask).
 - Settings → Chat and Settings → Agents take the same rows (a search still matches the sentences, and
   every group keeps its `section` for links). Chat keeps short group headings (Conversation, Composer,
   Quick replies, Files, Voice input) and its quick replies list as it was. The message box's optional
@@ -6013,10 +6019,10 @@ Alert rows of the table above from the `--droplet-*` roles in `src/styles.css`.
   chosen one is always among those shown). A pick changes the whole app at once, the dialog and the app
   behind it; the right column's Preview is a miniature of the app with made-up work (three agents waiting,
   working and done, a chat turn with code, a line of terminal) in the page's own colours, so it is always
-  the theme picked. Settings keeps its one sideways row; the guide's grid shows more at once in the room
-  the step has, as Orca's and Linear's first-run theme steps do. Unlike Settings there is no Dark theme |
-  Light theme switch: the mode above already chooses which side's themes are shown, and a theme picked
-  for the side not drawn would have no preview (Settings → Appearance sets both). An imported theme drawn on the side checks no card, and
+  the theme picked. Settings keeps a sideways row for each side; the guide's grid shows more at once in the room
+  the step has, as Orca's and Linear's first-run theme steps do. Unlike Settings it shows only the side
+  drawn now: the mode above already chooses it, and a theme picked for the side not drawn would have no
+  preview (Settings → Appearance sets both). An imported theme drawn on the side checks no card, and
   a pick replaces it, as in Settings. Arrow keys, Home and End pick along the cards, as a radio group's do.
 - Phone and alerts (after the theme, one step, the owner's pick over two): "Stay in touch with your agents".
   The left column is this computer: Turn on alerts while the browser has not been asked (App's own

@@ -79,7 +79,10 @@ try {
             const other: Scheme = scheme === "dark" ? "light" : "dark";
             const dialog = page.locator(".settings-dialog");
             const picker = dialog.locator('input[type="file"]');
-            const cards = dialog.locator('[data-theme-card^="custom:"]');
+            const label = (mode: Scheme) => mode === "dark" ? "Dark theme" : "Light theme";
+            const sideLabel = label(scheme);
+            const strip = (mode: Scheme) => dialog.getByRole("radiogroup", { name: label(mode), exact: true });
+            const cards = strip(scheme).locator('[data-theme-card^="custom:"]');
             await dialog.getByRole("button", { name: "Import", exact: true }).waitFor();
             const builtIn = await palette(page);
             assert.ok(builtIn && builtIn !== "custom", `${where}: a built-in theme is drawn before anything is imported`);
@@ -107,7 +110,7 @@ try {
             assert.equal(await cards.count(), 1);
             assert.equal(await cards.first().getAttribute("aria-checked"), "true", `${where}: its card is the checked one`);
             assert.equal((await cards.first().innerText()).trim(), "Lamplight");
-            assert.equal(await dialog.locator('[data-theme-card][aria-checked="true"]').count(), 1, `${where}: one card is checked`);
+            assert.equal(await strip(scheme).locator('[data-theme-card][aria-checked="true"]').count(), 1, `${where}: one card is checked`);
             assert.equal(await dialog.getByRole("list", { name: "Imported themes" }).getByRole("listitem").count(), 1);
             await waitDrawn(page, () => localStorage.getItem("ovis:custom-theme-rows") !== null);
             const saved = await stored(page);
@@ -163,7 +166,7 @@ try {
             await waitDrawn(page, (bg) => getComputedStyle(document.documentElement).getPropertyValue("--bg").trim() === bg, want.bg);
             assert.equal(await cards.count(), 1);
 
-            const first = dialog.locator('[data-theme-card]:not([data-theme-card^="custom:"])').first();
+            const first = strip(scheme).locator('[data-theme-card]:not([data-theme-card^="custom:"])').first();
             const firstId = await first.getAttribute("data-theme-card");
             await first.click();
             await waitDrawn(page, (id) => document.documentElement.dataset["palette"] === id, firstId);
@@ -178,8 +181,7 @@ try {
             await picker.setInputFiles(file("harbor-night.yaml", SCHEME));
             await dialog.getByRole("status").filter({ hasText: "Imported Harbor Night." }).waitFor();
             assert.equal(await cards.count(), 2);
-            assert.equal(await dialog.getByRole("button", { name: "Show dark themes", exact: true }).getAttribute("aria-pressed"), "true", `${where}: Dark is the side shown`);
-            const night = dialog.locator('[data-theme-card^="custom:"]', { hasText: "Harbor Night" });
+            const night = strip("dark").locator('[data-theme-card^="custom:"]', { hasText: "Harbor Night" });
             assert.equal(await night.getAttribute("aria-checked"), "true", `${where}: the scheme is the dark side's theme`);
             const after = await stored(page);
             assert.notEqual(after.list?.dark, after.list?.light, `${where}: the light side keeps the theme it had`);
@@ -192,11 +194,11 @@ try {
 
             const lone = JSON.stringify({ name: "Lamplight", dark: example.theme.dark });
             await picker.setInputFiles(file("lamplight-dark.json", lone));
-            await waitDrawn(page, () => document.querySelectorAll('.settings-dialog [data-theme-card^="custom:"]').length === 3);
+            await waitDrawn(page, (label) => document.querySelectorAll(`.settings-dialog [role="radiogroup"][aria-label="${label}"] [data-theme-card^="custom:"]`).length === 3, sideLabel);
             assert.deepEqual((await cards.allInnerTexts()).map((text) => text.trim()).sort(), ["Harbor Night", "Lamplight · Dark", "Lamplight · Dark · Light"]);
             assert.equal(await dialog.getByRole("button", { name: "Remove theme Lamplight · Dark · Light", exact: true }).count(), 1);
             await dialog.getByRole("button", { name: "Remove theme Lamplight · Dark", exact: true }).click();
-            await waitDrawn(page, () => document.querySelectorAll('.settings-dialog [data-theme-card^="custom:"]').length === 2);
+            await waitDrawn(page, (label) => document.querySelectorAll(`.settings-dialog [role="radiogroup"][aria-label="${label}"] [data-theme-card^="custom:"]`).length === 2, sideLabel);
             assert.deepEqual((await cards.allInnerTexts()).map((text) => text.trim()).sort(), ["Harbor Night", "Lamplight"], `${where}: alone again, the name stands by itself`);
             await picker.setInputFiles(file("two.yaml", 'name: "Two"\ndark:\n  base00: "101010"\n  base05: "e0e0e0"\nlight:\n  base00: "ffffff"\n  base05: "202020"\n'));
             await dialog.getByRole("alert").filter({ hasText: "That file holds more than one side." }).waitFor();
@@ -210,7 +212,7 @@ try {
             assert.equal(await inline(page, "--bg"), "");
             await waitDrawn(page, () => localStorage.getItem("ovis:custom-theme-rows") === null);
             assert.deepEqual(await stored(page), { list: { themes: [], dark: null, light: null }, rows: [], inMain: false });
-            assert.equal(await dialog.locator('[data-theme-card][aria-checked="true"]').count(), 1, `${where}: a built-in card is checked again`);
+            assert.equal(await strip(scheme).locator('[data-theme-card][aria-checked="true"]').count(), 1, `${where}: a built-in card is checked again`);
             assert.deepEqual(errors, []);
             console.log(`PASS ${where}: a theme file is imported, drawn, kept for the first frame, picked like a built-in theme and removed`);
           } finally { await close(); }
