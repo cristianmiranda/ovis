@@ -140,6 +140,7 @@ const BASE: Record<string, string> = {
   "Find in terminal": "터미널에서 찾기",
   "Previous match": "이전 결과",
   "Next match": "다음 결과",
+  "Clear search": "검색어 지우기",
   "Close search": "검색 닫기",
   "No matches": "검색 결과 없음",
   "{current} of {total}": "{total}개 중 {current}",

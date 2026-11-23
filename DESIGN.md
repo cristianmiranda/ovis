@@ -4873,7 +4873,8 @@ Alert rows of the table above from the `--droplet-*` roles in `src/styles.css`.
   checked chip takes its badge's tint and text (All and READY the neutral hover fill); a chip no
   pane answers to keeps a dashed edge. A chip is `--control-h` minus `--space-2` tall, and on a
   coarse pointer `--control-h` minus 2px with a `--touch-target` hit area. The row scrolls sideways
-  without a scrollbar where it does not fit. A status filter leaves the actions out; `>` at the
+  without a scrollbar where it does not fit, and fades at an edge that hides a chip, as the key bar
+  does. A status filter leaves the actions out; `>` at the
   start of the query shows the actions alone and hides the chips.
 - The footer (`.palette-footer`) names the picked row's place (PC › workspace › tab, omitting
   the PC for a single-PC roster) and its path in
@@ -4886,6 +4887,11 @@ Alert rows of the table above from the `--droplet-*` roles in `src/styles.css`.
   filter. The pick is a row, not a place: a pane leaving the filter above it moves the pick with its
   row, and a picked row that leaves hands its place, and the focus, to the row now there (the search
   when none is left). Below 640px the sheet is one fixed height, the chips and footer staying put.
+- The search field and its close follow iOS's search bar (`SearchSheetControls.tsx`, shared with
+  Conversation search): a typed field shows its own clear, a small filled round × inside it (the
+  browser's cancel glyph is hidden so there is one), which empties the field and keeps the focus
+  there. The close beside the field is the × on a desktop and the word **Cancel** on the phone
+  sheet, so the two never look alike.
 
 ### Conversation search (`.conversation-search`)
 - **Search conversation** (#2018) is the palette's sheet (`.command-palette`: top-offset

@@ -33,7 +33,6 @@ export const SIDEBAR_JA: Record<string, string> = {
   "Loading agents…": "エージェントを読み込み中…",
   "Herdr workspaces": "herdr ワークスペース",
   "No agents running": "実行中のエージェントはありません",
-  "Clear search": "検索を消去",
   "Nothing is running yet": "まだ何も実行されていません",
   "Couldn't load the list.": "リストを読み込めませんでした。",
   "Retrying…": "再試行しています…",

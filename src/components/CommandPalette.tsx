@@ -33,6 +33,8 @@ import { paneCovered } from "../lib/panePresentation.ts";
 import { useSheetSwipe } from "../lib/sheets.ts";
 import { usePhoneSheetBack } from "../lib/sheetHistory.ts";
 import { useMediaQuery } from "../lib/useMediaQuery.ts";
+import { useOverflowEdges } from "../lib/overflowEdges.ts";
+import { SearchClear, SearchSheetClose } from "./SearchSheetControls.tsx";
 import { useSessionHistoryOffered } from "../lib/useSessionHistoryOffered.ts";
 import { useRepositoryWorkspaces } from "../lib/repositoryWorkspaces.ts";
 import { useWorktreeBranches } from "../lib/useWorktreeBranches.ts";
@@ -190,6 +192,7 @@ export function CommandPalette({ open, initialQuery = "", onClose, machines, onS
   useSheetSwipe(surface, running !== null ? null : onClose);
   usePhoneSheetBack(() => { if (running !== null) return false; onClose(); }, open);
   const resultsRef = useRef<HTMLDivElement>(null);
+  const chipsRef = useRef<HTMLDivElement>(null);
   const [rowFocusRequest, setRowFocusRequest] = useState(0);
   const focusedRow = useRef<HTMLElement | null>(null);
   const previousRowKeys = useRef<readonly string[]>([]);
@@ -485,6 +488,7 @@ export function CommandPalette({ open, initialQuery = "", onClose, machines, onS
     focusedRow.current = null;
     (document.getElementById(`palette-item-${index}`) ?? inputRef.current)?.focus();
   }, [rowKeys]);
+  useOverflowEdges(chipsRef, [open, actionsOnly, folder === null]);
 
   if (!open) return null;
 
@@ -656,22 +660,27 @@ export function CommandPalette({ open, initialQuery = "", onClose, machines, onS
       {!watching && machines.filter((machine) => machine.state === "connected").map((machine) => <MachineContext.Provider key={machine.id} value={machine.id}><PaletteBranchReader machine={machine} onChange={onInventory} /></MachineContext.Provider>)}
       <section ref={surface} className="menu command-palette" role="dialog" aria-modal="true" aria-label={t("Command palette")} onKeyDown={onSurfaceKeyDown} onFocus={onSurfaceFocus}>
         <div className="palette-search">
-          <input ref={inputRef} className="input" type="search" value={query} placeholder={t("Search panes and actions…")} aria-label={t("Search panes and actions")} aria-controls="palette-results" aria-activedescendant={itemCount ? `palette-item-${activeIndex}` : undefined} onKeyDown={onInputKeyDown} onChange={(event) => { setQuery(event.target.value); setSelection(NO_SELECTION); }} />
-          <button type="button" className="icon-button" aria-label={t("Close command palette")} title={t("Close command palette")} onClick={onClose}><X /></button>
+          <div className="search-field">
+            <input ref={inputRef} className="input" type="search" value={query} placeholder={t("Search panes and actions…")} aria-label={t("Search panes and actions")} aria-controls="palette-results" aria-activedescendant={itemCount ? `palette-item-${activeIndex}` : undefined} onKeyDown={onInputKeyDown} onChange={(event) => { setQuery(event.target.value); setSelection(NO_SELECTION); }} />
+            {query !== "" && <SearchClear onClear={() => { setQuery(""); setSelection(NO_SELECTION); inputRef.current?.focus(); }} />}
+          </div>
+          <SearchSheetClose label={t("Close command palette")} onClose={onClose} />
         </div>
         {!actionsOnly && folder === null && (
-          <div className="palette-filters" role="radiogroup" aria-label={t("Filter panes by status")} onKeyDown={onChipsKeyDown}>
-            {STATUS_FILTERS.map((status) => {
-              const word = status === "all" ? t("All") : t(STATUS_WORD[status]);
-              const key = filterKeyOf(status);
-              const hint = key === null ? word : `${word} · ${key}`;
-              return (
-                <button key={status} type="button" role="radio" className="palette-filter" data-status={status} aria-checked={filter === status} aria-keyshortcuts={key ?? undefined} title={hint} tabIndex={filter === status ? 0 : -1} data-empty={counts[status] === 0 || undefined} onClick={(event) => onChipClick(event, status)}>
-                  <span className="palette-filter-word">{word}</span>
-                  <span className="palette-filter-count">{counts[status]}</span>
-                </button>
-              );
-            })}
+          <div className="palette-filters-bar">
+            <div ref={chipsRef} className="palette-filters" role="radiogroup" aria-label={t("Filter panes by status")} onKeyDown={onChipsKeyDown}>
+              {STATUS_FILTERS.map((status) => {
+                const word = status === "all" ? t("All") : t(STATUS_WORD[status]);
+                const key = filterKeyOf(status);
+                const hint = key === null ? word : `${word} · ${key}`;
+                return (
+                  <button key={status} type="button" role="radio" className="palette-filter" data-status={status} aria-checked={filter === status} aria-keyshortcuts={key ?? undefined} title={hint} tabIndex={filter === status ? 0 : -1} data-empty={counts[status] === 0 || undefined} onClick={(event) => onChipClick(event, status)}>
+                    <span className="palette-filter-word">{word}</span>
+                    <span className="palette-filter-count">{counts[status]}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         )}
         {pluginError !== null && <p className="palette-error" role="alert">{pluginError}</p>}

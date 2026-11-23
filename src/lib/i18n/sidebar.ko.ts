@@ -33,7 +33,6 @@ export const SIDEBAR_KO: Record<string, string> = {
   "Loading agents…": "에이전트 불러오는 중…",
   "Herdr workspaces": "herdr 워크스페이스",
   "No agents running": "실행 중인 에이전트가 없습니다",
-  "Clear search": "검색어 지우기",
   "Nothing is running yet": "아직 실행 중인 것이 없습니다",
   "Couldn't load the list.": "목록을 불러오지 못했습니다.",
   "Retrying…": "다시 시도하는 중…",

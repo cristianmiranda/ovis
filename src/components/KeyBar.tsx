@@ -9,6 +9,7 @@ import { createKeyRepeat, isRepeatableKeyBarItem, type KeyRepeat } from "../lib/
 import { keyboardUp } from "../lib/keyboard.ts";
 import { keyboardControl } from "../lib/keyboardControl.ts";
 import { useT } from "../lib/i18n.ts";
+import { markOverflowEdges } from "../lib/overflowEdges.ts";
 
 export type { KeyBarKey };
 
@@ -300,11 +301,7 @@ export function KeyBar({ onKey, onKeyHoldEnd, modifiers, lockedModifiers, onTogg
     const measure = (): void => {
       frame = 0;
       const scroller = getComputedStyle(row).display === "contents" ? bar : row;
-      for (const node of [bar, row]) {
-        const hidden = node.scrollWidth - node.clientWidth;
-        node.toggleAttribute("data-overflow-start", node === scroller && node.scrollLeft >= 1);
-        node.toggleAttribute("data-overflow-end", node === scroller && hidden - node.scrollLeft >= 1);
-      }
+      for (const node of [bar, row]) markOverflowEdges(node, node === scroller);
     };
     const schedule = (): void => {
       if (frame === 0) frame = requestAnimationFrame(measure);

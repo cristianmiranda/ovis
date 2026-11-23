@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { createPortal } from "react-dom";
-import { LoaderCircle, User, X } from "lucide-react";
+import { LoaderCircle, User } from "lucide-react";
 
 import "./CommandPalette.css";
 import "./ConversationSearch.css";
@@ -16,6 +16,7 @@ import { usePhoneSheetBack } from "../lib/sheetHistory.ts";
 import { useSheetSwipe } from "../lib/sheets.ts";
 import { useFocusTrap } from "../lib/useFocusTrap.ts";
 import { AgentMark } from "./AgentMark.tsx";
+import { SearchClear, SearchSheetClose } from "./SearchSheetControls.tsx";
 
 const MIN_QUERY = 2;
 const TYPING_MS = 250;
@@ -152,10 +153,13 @@ export function ConversationSearch({ paneId, agent, historyId, title = null, onC
     <div className="modal-scrim palette-scrim" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
       <section ref={surface} className="menu command-palette conversation-search" role="dialog" aria-modal="true" aria-label={t("Search conversation")}>
         <div className="palette-search">
-          <input ref={inputRef} className="input" type="search" value={query} maxLength={MAX_SEARCH_QUERY} placeholder={paneName === null ? t("Search messages and answers…") : t("Search in {pane}…", { pane: paneName })} aria-label={t("Search conversation")}
-            aria-controls="conversation-search-results" aria-activedescendant={matches.length > 0 ? `conversation-search-${Math.min(active, matches.length - 1)}` : undefined}
-            onKeyDown={onInputKeyDown} onChange={(event) => setQuery(event.target.value)} />
-          <button type="button" className="icon-button" aria-label={t("Close search")} title={t("Close search")} onClick={onClose}><X /></button>
+          <div className="search-field">
+            <input ref={inputRef} className="input" type="search" value={query} maxLength={MAX_SEARCH_QUERY} placeholder={paneName === null ? t("Search messages and answers…") : t("Search in {pane}…", { pane: paneName })} aria-label={t("Search conversation")}
+              aria-controls="conversation-search-results" aria-activedescendant={matches.length > 0 ? `conversation-search-${Math.min(active, matches.length - 1)}` : undefined}
+              onKeyDown={onInputKeyDown} onChange={(event) => setQuery(event.target.value)} />
+            {query !== "" && <SearchClear onClear={() => { setQuery(""); inputRef.current?.focus(); }} />}
+          </div>
+          <SearchSheetClose label={t("Close search")} onClose={onClose} />
         </div>
         <div className="palette-results" id="conversation-search-results" role="listbox" aria-label={t("Matching messages")}>
           {matches.map((match, index) => {

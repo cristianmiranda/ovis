@@ -22,15 +22,81 @@
   border-bottom: var(--hairline) solid var(--border);
 }
 
+.search-field {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
 .palette-search .input {
   flex: 1 1 auto;
   min-width: 0;
+  padding-right: var(--control-h);
+}
+
+/* the clear is the field's own, drawn once below; the browser's cancel glyph would make two */
+.palette-search .input::-webkit-search-cancel-button,
+.palette-search .input::-webkit-search-decoration {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.search-clear {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  display: grid;
+  place-items: center;
+  width: var(--control-h);
+  padding: 0;
+  background: transparent;
+  border: 0;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.search-clear-disc {
+  display: grid;
+  place-items: center;
+  width: var(--icon-size);
+  height: var(--icon-size);
+  background: currentColor;
+  border-radius: var(--radius-pill);
+}
+
+.search-clear-disc svg {
+  width: var(--space-3);
+  height: var(--space-3);
+  color: var(--bg-input);
+  stroke-width: 3;
+}
+
+@media (hover: hover) {
+  .search-clear:hover {
+    color: var(--text);
+  }
+}
+
+.search-cancel {
+  flex: 0 0 auto;
+  padding: 0 var(--space-2);
 }
 
 @media (pointer: coarse) {
   .palette-search .input {
     height: var(--touch-target);
     min-height: var(--touch-target);
+    padding-right: var(--touch-target);
+  }
+
+  .search-clear {
+    width: var(--touch-target);
+  }
+
+  .search-cancel {
+    height: var(--touch-target);
   }
 }
 
@@ -40,15 +106,41 @@
 }
 
 /* herdr's Goto picker filters as chips: All, then each state in its badge colours, each with its count. */
-.palette-filters {
-  display: flex;
+.palette-filters-bar {
   flex: 0 0 auto;
+  background: var(--bg-panel);
+  border-bottom: var(--hairline) solid var(--border);
+}
+
+.palette-filters {
+  --palette-fade-start: 0px;
+  --palette-fade-end: 0px;
+  display: flex;
   gap: var(--space-1);
   padding: var(--space-2) var(--space-3);
   overflow-x: auto;
+  overscroll-behavior-x: contain;
   scrollbar-width: none;
-  background: var(--bg-panel);
-  border-bottom: var(--hairline) solid var(--border);
+}
+
+/* the key bar's edge fade: a chip cut at an edge says the row scrolls */
+.palette-filters[data-overflow-start],
+.palette-filters[data-overflow-end] {
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    currentColor var(--palette-fade-start),
+    currentColor calc(100% - var(--palette-fade-end)),
+    transparent
+  );
+}
+
+.palette-filters[data-overflow-start] {
+  --palette-fade-start: var(--space-6);
+}
+
+.palette-filters[data-overflow-end] {
+  --palette-fade-end: var(--space-6);
 }
 
 .palette-filters::-webkit-scrollbar {

@@ -142,7 +142,12 @@ try {
       const label = UPRIGHT.label;
       await headerMore(page, "Search panes and actions");
       clear(await outside(page, ".palette-scrim", UPRIGHT.insets), `${label}: the search sheet clears the Dynamic Island`);
-      await reachable(page.getByRole("button", { name: "Close command palette" }), UPRIGHT.insets, `${label}: the search sheet's close`);
+      await reachable(page.locator(".palette-search").getByRole("button", { name: "Cancel", exact: true }), UPRIGHT.insets, `${label}: the search sheet's close`);
+      await page.locator(".palette-search .input").fill("flaky");
+      const [field, wipe] = await Promise.all([".palette-search .input", ".palette-search .search-clear"].map((selector) => page.locator(selector).boundingBox()));
+      if (!field || !wipe || wipe.x < field.x || wipe.x + wipe.width > field.x + field.width + 1) failures.push(`${label}: the search field's clear sits inside the field, apart from the sheet's Cancel`);
+      await page.locator(".palette-search .search-clear").click();
+      if (await page.locator(".palette-search .input").inputValue() !== "") failures.push(`${label}: the search field's clear empties it`);
       await keep(page, "upright-search");
       await close(page, ".palette-scrim");
 
@@ -207,7 +212,7 @@ try {
         await raise(field());
         const insets = { ...UPRIGHT.insets, bottom: 0 };
         clear(await outside(page, surface, insets), `${label}: the ${name} sheet clears the island`);
-        await reachable(page.locator(surface).getByRole("button", { name: /^(Close command palette|Close settings)$/ }), insets, `${label}: the ${name} sheet's close`);
+        await reachable(page.locator(surface).getByRole("button", { name: /^(Cancel|Close settings)$/ }), insets, `${label}: the ${name} sheet's close`);
         const top = await page.locator(surface).evaluate((node) => node.getBoundingClientRect().top);
         if (top < UPRIGHT.insets.top) failures.push(`${label}: the ${name} sheet starts under the island (${top} < ${UPRIGHT.insets.top})`);
         if (name === "search") await keep(page, "keyboard-search");

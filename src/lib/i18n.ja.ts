@@ -142,6 +142,7 @@ const BASE: Record<string, string> = {
   "Find in terminal": "ターミナル内を検索",
   "Previous match": "前の一致",
   "Next match": "次の一致",
+  "Clear search": "検索を消去",
   "Close search": "検索を閉じる",
   "No matches": "一致なし",
   "{current} of {total}": "{total}件中{current}件目",

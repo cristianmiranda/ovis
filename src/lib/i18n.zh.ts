@@ -144,6 +144,7 @@ const BASE: Record<string, string> = {
   "Find in terminal": "在终端中查找",
   "Previous match": "上一个匹配",
   "Next match": "下一个匹配",
+  "Clear search": "清除搜索",
   "Close search": "关闭搜索",
   "No matches": "无匹配",
   "{current} of {total}": "第 {current} 个，共 {total} 个",
