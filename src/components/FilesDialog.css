@@ -50,6 +50,12 @@
   padding: var(--space-3);
 }
 
+/* a sheet as tall as Settings': browsing needs the room, so the list fills it */
+@media (max-width: 640px) {
+  .modal.files-dialog { height: 92%; }
+  .modal.files-dialog .dir-browser-list { max-height: none; }
+}
+
 @media (max-width: 480px) {
   .files-dialog .modal-header:has(.files-dialog-tabs > :nth-child(4)) { flex-wrap: wrap; }
   .files-dialog .files-dialog-tabs:has(> :nth-child(4)) { order: 1; flex: 1 1 100%; display: flex; }

@@ -136,6 +136,8 @@ async function phone(browser: Browser, theme: "light" | "dark"): Promise<void> {
     await page.waitForFunction(() => document.getAnimations().every((animation) => animation.playState !== "running"));
     await page.getByText("package.json").waitFor();
     assert.equal(await page.locator("aside.files-panel").count(), 0);
+    const sheet = await page.locator(".modal-scrim .files-dialog").evaluate((node) => node.getBoundingClientRect().height / innerHeight);
+    assert.ok(sheet > 0.9, `the Files sheet is tall on a phone: ${Math.round(sheet * 100)}% of the screen`);
     await shot(page, `files-dialog-390-${theme}`);
     assert.deepEqual(errors, []);
     console.log(`PASS 390px ${theme}: the setting is off by default, and Files stays a sheet when it is on`);

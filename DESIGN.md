@@ -3326,6 +3326,9 @@ Alert rows of the table above from the `--droplet-*` roles in `src/styles.css`.
 - Four tabs do not fit beside the title and Close on a phone (480px or less) or a panel of 480px
   or less: there the tabs take the row under them, each a share of it, with tighter padding, and
   Close keeps the row's end where the narrow panel drops the title. Three tabs keep one row.
+- As a phone's sheet (640px or less) Files is `92%` tall, as Settings is, whatever it lists, and
+  the folder list fills it: a sheet sized to an empty or short folder left one to three rows under
+  a dimmed chat. Paseo's mobile file explorer also takes the whole height.
 - Reference: Paseo's `paseo-markdown-viewer` plugin (a Markdown list beside the agent that opens
   each in a reader) and the Codex app's side panel, which opens a `.md` beside Review. Ovis keeps
   it read only and inside Files, behind its setting, until the safe write route of #771 lands;
