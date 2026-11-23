@@ -146,6 +146,9 @@ try {
           assert.equal(await page.locator(".context-connection").count(), 0, `${width}: a page opening is not a reconnect`);
           // the crumb, not the session's line (.context-session) that shares its class
           const crumb = await page.locator(".context-sub:not(.context-session)").innerText();
+          // the tab row under the header names the tab, so the title area names the place: the worktree's workspace, then its repository
+          const place = () => page.locator(".context-title-text").innerText();
+          assert.deepEqual([await place(), crumb], ["changelog", "cli-tools"], `${width}: the header names the workspace and its repository`);
           const height = await page.locator(".app-header").evaluate((node) => node.getBoundingClientRect().height);
           const composer = page.getByRole("textbox", { name: "Message", exact: true });
           await composer.fill(DRAFT);
@@ -158,6 +161,7 @@ try {
           assert.equal(lost.text, "Reconnecting…", `${width}: the title area says it is reconnecting`);
           assert.ok(lost.whole && lost.onRow && lost.inView && lost.inHeader, `${width}: the word is whole, in the title area, inside the header, on screen (${JSON.stringify(lost)})`);
           assert.ok(lost.title, `${width}: the pane title keeps its room (${JSON.stringify(lost)})`);
+          assert.equal(await place(), "changelog", `${width}: the place stays the title while reconnecting`);
           assert.equal(lost.header, height, `${width}: the header keeps its height`);
           assert.ok(lost.still, `${width}: the line is not animated`);
           assert.equal(await page.locator(".conn.conn-quiet").count(), 1, `${width}: the chip keeps only its dot while the title area says the word`);

@@ -2157,6 +2157,37 @@ button {
   white-space: nowrap;
 }
 
+/* the place's line sits on the workspace name's baseline: the name, not the leading mark, gives the title its baseline */
+.context.is-place {
+  flex-wrap: nowrap;
+  align-items: baseline;
+}
+
+.context.is-place .context-title {
+  flex-shrink: 0;
+}
+
+.context.is-place .context-sub:not(.context-session) {
+  flex-shrink: 1;
+  min-width: 0;
+}
+
+.context.is-place .context-sub:not(.context-session) > span:last-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.context.is-place:not(.has-connection, :has(.context-watch)) .context-title-text {
+  align-self: baseline;
+  line-height: var(--context-line);
+}
+
+.context-title .sidebar-mark {
+  flex: none;
+  width: auto;
+}
+
 .context-watch {
   color: var(--text-strong);
   font-weight: var(--fw-medium);

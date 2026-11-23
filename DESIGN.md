@@ -1089,7 +1089,16 @@ Alert rows of the table above from the `--droplet-*` roles in `src/styles.css`.
 - The header is one line at every width. Below `769px`, left to right: the drawer toggle; the
   flexible context, agent mark and title (it opens the workspace's tabs on a phone) then the
   PC › workspace › folder crumb; the Chat/Terminal switch; the connection chip while the bridge is
-  not live, the offline pill and the More menu (`⋯`). From `769px` with one pane in view the row is
+  not live, the offline pill and the More menu (`⋯`). Where the tab row is drawn under that header
+  (Tabs on a phone at Under the header, up to `768px`, unless a lone tab on a cramped screen leaves
+  it out), the row already names the open tab, so the context names the place instead
+  (`.context.is-place`): the workspace's mark as the sidebar draws it (its project icon, else a
+  folder glyph) and its name, then on the name's baseline, `--text-dim`, the PC when there are
+  several, the repository of a worktree workspace and the folder where it differs, cut with an
+  ellipsis before the name is. The hidden `h1` and the context's accessible name keep the pane's
+  title. It follows a phone browser, whose bar names the site while its tabs name the pages, and
+  Termius, whose bar names the host; the Codex and Claude apps title the thread because they draw
+  no tab row. With no row the title is the pane's, as before. From `769px` with one pane in view the row is
   a browser's tab strip (Chrome's, sized after the Herdr app's tab bar, THIRD_PARTY_NOTICES.md):
   the sidebar's head (`.header-side`: the Ovis wordmark, `src/assets/brand/logo-light.png`
   or `logo-dark.png` by the resolved theme, a button into the inbox mode (Inbox mode, below) wherever
@@ -3610,7 +3619,8 @@ Alert rows of the table above from the `--droplet-*` roles in `src/styles.css`.
   (`.context:has(.context-watch)`: the column layout, one line); the title
   keeps its top-left.
   Below `769px` the title is followed, `--text-dim` and kept whole, by the selected tab's place in
-  its workspace's strip (`.context-position`, "1/2", said "Tab 1 of 2"), only with two tabs or more;
+  its workspace's strip (`.context-position`, "1/2", said "Tab 1 of 2"), only with two tabs or more
+  and not while the header names the place (the row under it marks the open tab);
   below `420px` it leaves the header, and the tab row marks the open tab (with Tabs on a phone at In
   the header, the header's row and its tab sheet).
 

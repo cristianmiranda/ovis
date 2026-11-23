@@ -46,25 +46,46 @@ try {
                 await page.screenshot({ path: join(evidence, `${label}.png`), animations: "disabled" });
               }
               assert.ok(snapshot.includes(`group "${full}"`), `${label}: accessible title names the agent, PC, workspace, title and complete path: ${snapshot}`);
-              assert.equal(await title.textContent(), pane.title, "visible text is unchanged");
+              // a phone's tab row under the header names the tab: the header names the place, its repository on the title's baseline
+              const phone = width === 390;
+              assert.equal(await title.textContent(), phone ? pane.workspace : pane.title, `${label}: the header's visible title`);
+              if (phone) {
+                const place = await page.locator(".context").evaluate((context) => {
+                  const baseline = (element: Element) => {
+                    const probe = document.createElement("span");
+                    probe.style.cssText = "display:inline-block;width:0;height:0";
+                    element.append(probe);
+                    const y = probe.getBoundingClientRect().bottom;
+                    probe.remove();
+                    return y;
+                  };
+                  const name = context.querySelector(".context-title-text")!;
+                  const sub = context.querySelector(".context-sub:not(.context-session)")!;
+                  const header = context.closest(".app-header")!.getBoundingClientRect();
+                  return { sub: (sub as HTMLElement).innerText, gap: Math.abs(baseline(name) - baseline(sub.lastElementChild!)), inHeader: sub.getBoundingClientRect().bottom <= header.bottom };
+                });
+                assert.deepEqual(place, { sub: "checkout-api", gap: 0, inHeader: true }, `${label}: the worktree's repository follows the workspace on its baseline`);
+                assert.equal(await page.locator(".context-position").count(), 0, `${label}: the row, not the header, marks the open tab`);
+              }
               assert.equal(await page.getByRole("heading", { level: 1 }).count(), 1, "the copy lane's hidden h1 stays the only first-level heading");
               assert.equal(await page.locator("h1.visually-hidden").textContent(), pane.title);
-              await page.locator(".context-title .agent-mark svg").waitFor();
-              const centres = await page.locator("header.app-header").evaluate((header) => {
+              const mark = phone ? ".context-title .sidebar-mark svg, .context-title .sidebar-mark img" : ".context-title .agent-mark svg";
+              await page.locator(mark).first().waitFor();
+              const centres = await page.locator("header.app-header").evaluate((header, mark) => {
                 const box = header.getBoundingClientRect();
                 const style = getComputedStyle(header);
                 const line = (box.top + parseFloat(style.paddingTop) + box.bottom - parseFloat(style.borderBottomWidth)) / 2;
-                return [...header.querySelectorAll(".context-title .agent-mark svg, .header-side .icon-button")]
+                return [...header.querySelectorAll(`${mark}, .header-side .icon-button`)]
                   .filter((element) => element.getClientRects().length > 0)
                   .map((element) => {
                     const drawn = element.getBoundingClientRect();
-                    return { control: element.closest(".agent-mark") ? "agent mark" : element.getAttribute("aria-label"), offset: Math.round((drawn.top + drawn.height / 2 - line) * 100) / 100 };
+                    return { control: element.closest(".context-title") ? "title mark" : element.getAttribute("aria-label"), offset: Math.round((drawn.top + drawn.height / 2 - line) * 100) / 100 };
                   });
-              });
+              }, mark);
               if (width === 1440) assert.ok(centres.some(({ control }) => control === "Hide workspace list"), `${label}: the sidebar's top row is in the header`);
-              assert.deepEqual(centres.filter(({ offset }) => Math.abs(offset) > 0.25), [], `${label}: the agent's mark and the sidebar's top row are centred on the header's line`);
+              assert.deepEqual(centres.filter(({ offset }) => Math.abs(offset) > 0.25), [], `${label}: the title's mark and the sidebar's top row are centred on the header's line`);
               assert.deepEqual(errors, []);
-              console.log(`PASS ${label}: full accessible context and one unchanged h1; the mark and the sidebar's top row on the header's line`);
+              console.log(`PASS ${label}: full accessible context and one unchanged h1; the mark and the sidebar's top row on the header's line${phone ? "; the place, not the tab, titles a phone's header" : ""}`);
             } finally { await page.close(); }
           }
         } finally { await context.close(); }

@@ -1,5 +1,5 @@
 import { type CSSProperties, Fragment, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Bell, ChevronDown, ChevronLeft, Eye, Plus, CircleHelp, Ellipsis, FolderOpen, Inbox, Link, Menu, MessageCircle, MessageSquare, PanelLeft, PanelsTopLeft, Search, Settings as SettingsGlyph, SquareTerminal, Target, TextSearch, X } from "lucide-react";
+import { Bell, ChevronDown, ChevronLeft, Eye, Plus, CircleHelp, Ellipsis, Folder, FolderOpen, Inbox, Link, Menu, MessageCircle, MessageSquare, PanelLeft, PanelsTopLeft, Search, Settings as SettingsGlyph, SquareTerminal, Target, TextSearch, X } from "lucide-react";
 
 import type { HerdrPane, PaneDirection } from "../shared/protocol.ts";
 import { authenticate, createTab, declinePendingKey, movePaneBeside, moveTabToWorkspace, paneSessionKey, shareSeen, swapPaneWith } from "./lib/api.ts";
@@ -36,6 +36,7 @@ import { setTabLabelLearning, settleTabLabels, subscribeTabLabels } from "./lib/
 import { customTabLabel, tabLabel } from "./lib/tabName.ts";
 import { agentName } from "./lib/runtimeMove.ts";
 import { TabStrip } from "./components/TabStrip.tsx";
+import { WorkspaceFavicon } from "./components/WorkspaceFavicon.tsx";
 import { SettingsDialog } from "./components/SettingsDialog.tsx";
 import { loadedOnSettingsEntry } from "./lib/settingsHistory.ts";
 import { useSettingsDialog } from "./lib/useSettingsDialog.ts";
@@ -897,6 +898,13 @@ export function App() {
   // then the lens switch, Files and More (styles.css .header-tabs, THIRD_PARTY_NOTICES.md).
   const phoneTabRow = tabsInHeader && !inbox.shown && !inMode;
   const workspaceTabCount = selectedPane ? snapshot?.tabs.filter((tab) => tab.workspace_id === selectedPane.workspace_id).length ?? 0 : 0;
+  // below 769px a tab row under the header already names the open tab: the header names the place instead
+  const placeTitle = !wideScreen && !tabsInHeader && !guideShown && selectedWorkspace !== null && !tabRowHidden(cramped, workspaceTabCount, false);
+  const placeRepo = placeTitle ? worktreeRepoName(selectedWorkspace) : null;
+  const subParts = placeTitle && crumb
+    ? [crumb.showMachine ? { key: "machine", text: crumb.machine } : null, placeRepo !== null ? { key: "repo", text: placeRepo } : null, crumb.folder !== null && crumb.folder !== placeRepo && crumb.folder !== crumb.workspace ? { key: "folder", text: crumb.folder } : null]
+      .filter((part): part is { key: string; text: string } => part !== null)
+    : crumbParts;
   const classicStripInHeader = (wideScreen ? !splitOn && !tabsInHeader : tabsInHeader) && !guideShown && snapshot !== null && selectedPane !== null && selectedWorkspace !== null;
   const stripInHeader = classicStripInHeader && !inMode;
   // on a wide screen with a mouse the pane column ends in the Herdr app's status bar: where the pane is, its branch,
@@ -1061,11 +1069,13 @@ export function App() {
         ) : selectedPane && crumb && drawerHead ? (
           <DrawerHeadTitle machine={crumb.machine} workspace={crumb.workspace} connection={headerConnection} watching={viewOnly(selectedMachineId)} />
         ) : selectedPane && crumb ? (
-          <div className={`context${headerConnection === null ? "" : " has-connection"}${tabsInHeader && selectedWorkspace && !guideShown ? " has-tabs" : ""}`} title={crumb.tooltip}>
+          <div className={`context${headerConnection === null ? "" : " has-connection"}${tabsInHeader && selectedWorkspace && !guideShown ? " has-tabs" : ""}${placeTitle ? " is-place" : ""}`} title={crumb.tooltip}>
             <div className="context-title">
-              {selectedAgent && <AgentMark agent={selectedAgent} size={18} />}
-              <span className="context-title-text" role="group" aria-label={[selectedAgent ? agentName(selectedAgent) : null, crumb.fullContext].filter((part) => part !== null).join(" · ")}>{selectedTitle}</span>
-              {position && <span className="context-position" title={position.words}>
+              {placeTitle
+                ? <WorkspaceFavicon root={selectedWorkspace?.worktree?.checkout_path ?? selectedPane.cwd ?? null} fallback={<span className="sidebar-mark workspace-folder" aria-hidden="true"><Folder /></span>} />
+                : selectedAgent && <AgentMark agent={selectedAgent} size={18} />}
+              <span className="context-title-text" role="group" aria-label={[selectedAgent ? agentName(selectedAgent) : null, crumb.fullContext].filter((part) => part !== null).join(" · ")}>{placeTitle ? crumb.workspace : selectedTitle}</span>
+              {position && !placeTitle && <span className="context-position" title={position.words}>
                 <span aria-hidden="true">{position.index}/{position.count}</span>
                 <span className="visually-hidden">{position.words}</span>
               </span>}
@@ -1074,10 +1084,10 @@ export function App() {
                 <ChevronDown aria-hidden="true" />
               </button>}
             </div>
-            {(headerConnection !== null || crumbParts.length > 0 || (viewOnly(selectedMachineId) && !statusBarShown)) && <div className={`context-sub${headerConnection === null ? "" : ` context-connection is-${headerConnection}`}`}>
-              {viewOnly(selectedMachineId) && !statusBarShown && <><span className="context-watch">{t("View only")}</span>{(headerConnection !== null || crumbParts.length > 0) && <span className="context-sep" aria-hidden="true">·</span>}</>}
+            {(headerConnection !== null || subParts.length > 0 || (viewOnly(selectedMachineId) && !statusBarShown)) && <div className={`context-sub${headerConnection === null ? "" : ` context-connection is-${headerConnection}`}`}>
+              {viewOnly(selectedMachineId) && !statusBarShown && <><span className="context-watch">{t("View only")}</span>{(headerConnection !== null || subParts.length > 0) && <span className="context-sep" aria-hidden="true">·</span>}</>}
               {headerConnection !== null ? <span>{connectionWord(headerConnection, t)}</span>
-                : crumbParts.map((part, index) => <Fragment key={part.key}>
+                : subParts.map((part, index) => <Fragment key={part.key}>
                   {index > 0 && <span className="context-sep" aria-hidden="true">›</span>}
                   <span className={part.key === "machine" ? "machine-context-name" : undefined}>{part.text}</span>
                 </Fragment>)}

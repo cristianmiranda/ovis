@@ -154,6 +154,8 @@ try {
         await page.setViewportSize({ width: 700, height: 900 });
         await tabRowShown(page);
         await page.locator(".tab-strip-label", { hasText: "Duo tab" }).waitFor();
+        const headerTitle = page.locator(".app-header .context-title-text");
+        assert.equal(await headerTitle.innerText(), "checkout-api", "upright, the row names the tab and the header names its workspace");
         assert.equal(await page.locator(".pane-frame.is-single .pane-frame-menu").isVisible(), false,
           "upright, the lone tab keeps its row, whose menu carries the pane's actions");
         await openMore(page);
@@ -168,6 +170,7 @@ try {
         assert.equal(await page.locator(".tab-strip-rename").inputValue(), "half typed", "the row's name field keeps what was typed when the row would step out");
         await page.locator(".tab-strip-rename").press("Escape");
         await page.locator(".pane-slot .tab-strip").waitFor({ state: "detached" });
+        assert.equal(await headerTitle.innerText(), await page.locator("h1.visually-hidden").textContent(), "with no row the header's title names the pane again");
         await page.setViewportSize({ width: 700, height: 900 });
         await tabRowShown(page);
         await page.setViewportSize({ width: 390, height: 844 });
