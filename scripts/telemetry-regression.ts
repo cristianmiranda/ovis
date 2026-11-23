@@ -44,6 +44,38 @@ function fixtureSettings() {
   };
 }
 
+/** On a phone the line wraps instead of cutting what it says. The status is answered as before the
+ * notice and nothing this page tells reaches the server, so the desktop page's flow stays as it is. */
+async function checkPhoneNotice(browser: Browser, origin: string): Promise<void> {
+  const phone = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, locale: "en-US" });
+  try {
+    await phone.addInitScript(() => localStorage.setItem("ovis:settings", JSON.stringify({ language: "en" })));
+    await phone.route("**/api/telemetry", async (route) => {
+      const before = { ...await statusAt(origin), notice_seen: false };
+      await route.fulfill({ json: before });
+    });
+    const page = await phone.newPage();
+    page.setDefaultTimeout(10_000);
+    await page.goto(origin);
+    const notice = page.locator(".update-notice.is-telemetry").first();
+    await notice.waitFor({ state: "visible" });
+    const text = await notice.locator(".update-notice-text").evaluate((node) => {
+      const range = document.createRange();
+      range.selectNodeContents(node);
+      const rows = new Set([...range.getClientRects()].map((rect) => Math.round(rect.top))).size;
+      return { rows, cut: node.scrollHeight > node.clientHeight + 1 || node.scrollWidth > node.clientWidth + 1 };
+    });
+    assert.ok(text.rows > 1 && text.rows <= 3, `at 390px the sentence wraps to at most three rows (${text.rows} rows)`);
+    assert.equal(text.cut, false, "at 390px the sentence is not cut");
+    for (const name of ["Turn off", "Dismiss"]) {
+      const box = await notice.getByRole("button", { name, exact: true }).boundingBox();
+      assert.ok(box && box.width >= 44 && box.height >= 44, `at 390px ${name} keeps a 44px target (${JSON.stringify(box)})`);
+    }
+  } finally {
+    await phone.close();
+  }
+}
+
 /** A real app page and local API; the injected transport cannot reach the production receiver. */
 export async function checkTelemetrySettings(browser: Browser): Promise<void> {
   const root = mkdtempSync(join(tmpdir(), "ovis-telemetry-regression-"));
@@ -192,6 +224,7 @@ export async function checkTelemetrySettings(browser: Browser): Promise<void> {
     assert.equal(await notice.getByRole("button").count(), 3, "the line offers its sentence (Settings), Turn off and Dismiss, nothing else");
     const rows = await notice.locator(".update-notice-text").evaluate((text) => text.getBoundingClientRect().height / parseFloat(getComputedStyle(text).lineHeight));
     assert.ok(rows < 1.5, `the sentence stays on one row (${rows} rows)`);
+    await checkPhoneNotice(browser, origin);
     const sendSwitch = telemetrySection.getByRole("switch", { name: "Send anonymous usage counts", exact: true });
     await sendSwitch.click();
     await until(async () => !(await statusAt(origin)).enabled, "the Settings switch cancels the pending event");

@@ -1155,7 +1155,11 @@ Alert rows of the table above from the `--droplet-*` roles in `src/styles.css`.
   shared/protocol.ts "Browser stream keys"); nor does anyone see a pairing whose write failed. The
   line follows this app's own update and LAN-exposure notice lines, which it sits beside, so a new
   device reads as one more thing to look at; the Codex and Claude apps have no verified device
-  alert to follow. A layout
+  alert to follow. The anonymous usage counts line (`.update-notice.is-telemetry`) is one row from
+  `769px`, its sentence cut with an ellipsis; below that the sentence wraps to at most three lines,
+  so what it agrees to can be read where it shows, with **Turn off** and the X at the touch size
+  beside its first line, as the Claude and Codex apps let a short banner wrap on a phone. The update
+  notice keeps its one row there. A layout
   call the palette made that a PC's bridge from before the route answered 404 to reads there too,
   for a moment, as a `.pane-notice` line of `--status-blocked` `--fs-xs` text under a hairline
   ("This PC's bridge does not offer this yet"); the tab's menu says the same at the strip's end. With the

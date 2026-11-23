@@ -105,6 +105,28 @@
   }
 }
 
+@media (max-width: 768px), (pointer: coarse) and (max-height: 500px) {
+  .update-notice.is-line.is-telemetry {
+    align-items: flex-start;
+  }
+
+  .update-notice.is-line.is-telemetry > .update-notice-text {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+    padding-block: max(0px, calc((var(--control-h) - 1lh) / 2)) 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+}
+
+@media (max-width: 768px) and (pointer: coarse), (pointer: coarse) and (max-height: 500px) {
+  .update-notice.is-line.is-telemetry > .update-notice-text {
+    padding-block: max(0px, calc((var(--touch-target) - 1lh) / 2)) 0;
+  }
+}
+
 .update-progress {
   max-width: 32rem;
 }
