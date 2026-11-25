@@ -30,7 +30,7 @@ import type { Database } from "bun:sqlite";
 import type { HerdrPane, PaneBackgroundAgentDetail } from "../shared/protocol.ts";
 import type { OmoTask } from "../shared/tasks.ts";
 import { DETAIL_LIMITS, fitDetail, type DetailRefusal } from "./claude-subagents.ts";
-import { opencodeSessionId, sessionView, supportedRowSize, withStore } from "./opencode.ts";
+import { hasTable, opencodeSessionId, sessionView, stepBlocks, supportedRowSize, withStore } from "./opencode.ts";
 
 const RECENT_MS = 24 * 60 * 60_000;
 const RECENT_LIMIT = 10;
@@ -119,21 +119,23 @@ const NO_LOG: ParentLog = { after: -1, rows: 0, since: 0, told: new Map() };
  * A call names its child once it reached it (`state.metadata.sessionID`, set just before the child is prompted),
  * not by the sessionID its input asks for: one refused before that (a permission denied, an unknown agent) ran nothing.
  */
-const PARENT_ROW = `SELECT m.id, m.seq, m.type, m.time_created AS created, m.time_updated AS updated,
+const parentRows = (parts: boolean): string => `SELECT m.id, m.seq, m.type, m.time_created AS created, m.time_updated AS updated,
   CASE WHEN m.type = 'assistant' AND json_valid(m.data) THEN (SELECT json_group_array(json_object(
       'status', json_extract(c.value, '$.state.status'),
       'child', json_extract(c.value, '$.state.metadata.sessionID'),
       'answer', json_extract(c.value, '$.state.metadata.status'), 'error', json_extract(c.value, '$.state.error.type'),
       'message', substr(json_extract(c.value, '$.state.error.message'), 1, 40),
       'at', json_extract(c.value, '$.time.completed')))
-    FROM json_each(m.data, '$.content') AS c
+    FROM ${stepBlocks(parts)} AS c
     WHERE json_extract(c.value, '$.type') = 'tool' AND json_extract(c.value, '$.name') = 'subagent') END AS calls,
   CASE WHEN m.type = 'synthetic' AND json_valid(m.data) AND json_extract(m.data, '$.metadata.source') = 'subagent'
     THEN json_extract(m.data, '$.metadata.childID') END AS notified,
   CASE WHEN m.type = 'synthetic' AND json_valid(m.data) THEN json_extract(m.data, '$.metadata.state') END AS state,
   CASE WHEN m.type = 'synthetic' AND json_valid(m.data) THEN json_extract(m.data, '$.time.created') END AS at
 FROM session_message AS m`;
-const NAMES_SUBAGENT = `((m.type = 'assistant' AND instr(m.data, '"name":"subagent"') > 0) OR (m.type = 'synthetic' AND instr(m.data, '"source":"subagent"') > 0))`;
+const namesSubagent = (parts: boolean): string => `((m.type = 'assistant' AND (instr(m.data, '"name":"subagent"') > 0${parts
+  ? ` OR EXISTS (SELECT 1 FROM session_part AS p WHERE p.session_id = m.session_id AND p.message_id = m.id AND p.type = 'tool' AND instr(p.data, '"name":"subagent"') > 0)`
+  : ""})) OR (m.type = 'synthetic' AND instr(m.data, '"source":"subagent"') > 0))`;
 type ParentRow = { id: string; seq: number; type: string; created: number; updated: number; calls: string | null; notified: unknown; state: unknown; at: unknown };
 
 function parentRow(row: ParentRow): (Told & { child: string })[] {
@@ -189,8 +191,8 @@ function parentStep(db: Database, scan: Scan): void {
           CROSS JOIN session_message AS m ON m.id = json_extract(k.value, '$[0]') WHERE +m.session_id = ?1 AND m.time_updated IS NOT json_extract(k.value, '$[1]')`,
         ).all(sid, stamps).map((row) => row.id);
         const reread = JSON.stringify([...new Set([...(JSON.parse(changed) as string[]), ...rewritten])]);
-        for (const row of db.query<ParentRow, [string, string, string]>(`${PARENT_ROW}
-          WHERE +m.session_id = ? AND m.id IN (SELECT value FROM json_each(?)) AND (${NAMES_SUBAGENT} OR m.id IN (SELECT value FROM json_each(?)))`,
+        for (const row of db.query<ParentRow, [string, string, string]>(`${parentRows(scan.parts)}
+          WHERE +m.session_id = ? AND m.id IN (SELECT value FROM json_each(?)) AND (${namesSubagent(scan.parts)} OR m.id IN (SELECT value FROM json_each(?)))`,
         ).all(sid, reread, ids)) {
           const now = parentRow(row);
           if ([...told].some(([child, said]) => said.id === row.id && !now.some((entry) => entry.child === child))) { whole = false; break; }
@@ -209,7 +211,7 @@ function parentStep(db: Database, scan: Scan): void {
     `SELECT max(seq) AS seq FROM (SELECT seq FROM session_message WHERE session_id = ? AND seq > ? AND seq < ? ORDER BY seq LIMIT ${SUBAGENT_PAGE})`,
   ).get(sid, log.after, scan.end)?.seq ?? null;
   if (upto !== null && log.after < scan.newest) {
-    for (const row of db.query<ParentRow, [string, number, number]>(`${PARENT_ROW} WHERE m.session_id = ? AND m.seq > ? AND m.seq <= ? AND ${NAMES_SUBAGENT}`).all(sid, log.after, upto)) {
+    for (const row of db.query<ParentRow, [string, number, number]>(`${parentRows(scan.parts)} WHERE m.session_id = ? AND m.seq > ? AND m.seq <= ? AND ${namesSubagent(scan.parts)}`).all(sid, log.after, upto)) {
       for (const { child, ...said } of parentRow(row)) {
         const was = told.get(child);
         if (newer(said, was)) told.set(child, said);
@@ -231,10 +233,11 @@ function childEnd(own: End | null, told: Told | undefined, dispatched: number | 
   return told.end;
 }
 
-function childWork(db: Database, id: string): { turns: number; toolCalls: number; tokens: number | null; model: string | null } {
+function childWork(db: Database, id: string, parts: boolean): { turns: number; toolCalls: number; tokens: number | null; model: string | null } {
   const steps = db.query<{ steps: number }, [string]>("SELECT count(*) AS steps FROM session_message WHERE session_id = ? AND type = 'assistant'").get(id)?.steps ?? 0;
   const tools = db.query<{ tools: number }, [string]>(
-    "SELECT count(*) AS tools FROM session_message AS m, json_each(m.data, '$.content') AS c WHERE m.session_id = ? AND m.type = 'assistant' AND json_valid(m.data) AND json_extract(c.value, '$.type') = 'tool'",
+    `SELECT coalesce(sum((SELECT count(*) FROM ${stepBlocks(parts)} AS c WHERE json_extract(c.value, '$.type') = 'tool')), 0) AS tools
+      FROM session_message AS m WHERE m.session_id = ? AND m.type = 'assistant' AND json_valid(m.data)`,
   ).get(id)?.tools ?? 0;
   const last = db.query<{ data: string }, [string]>("SELECT data FROM session_message WHERE session_id = ? AND type = 'assistant' ORDER BY seq DESC LIMIT 1").get(id);
   const data = last === null ? {} : parse(last.data);
@@ -255,7 +258,7 @@ interface KeptRun extends ChildRun { dispatched: number | null; title: string | 
 
 interface Scan {
   sessionId: string; now: number; live: boolean; serviceStart: number | null; detail: boolean;
-  columns: Set<string> | null; after: number; paged: boolean;
+  columns: Set<string> | null; parts: boolean; after: number; paged: boolean;
   shells: OmoTask[] | null; shellRunning: number;
   told: Map<string, Told> | null; log: ParentLog; since: number | null; newest: number; idle: number;
   end: number;
@@ -272,7 +275,7 @@ const WORK_STEP = 50;
 export const RUNNING_LIMIT = 1000;
 
 function newScan(sessionId: string, now: number, live: boolean, serviceStart: number | null, detail: boolean, log: ParentLog = NO_LOG, parentEnds = false): Scan {
-  return { sessionId, now, live, serviceStart, detail, columns: null, after: 0, paged: false, shells: null, shellRunning: 0, told: parentEnds ? null : new Map(), log, since: null, newest: 0, idle: -1, end: Number.MAX_SAFE_INTEGER, parentEnds, open: [], ended: [], ids: null, reread: 0, promptAt: null, running: 0, turnRunning: 0, going: [], stopped: [], state: null, shown: [], work: new Map(), worked: 0, finished: false };
+  return { sessionId, now, live, serviceStart, detail, columns: null, parts: false, after: 0, paged: false, shells: null, shellRunning: 0, told: parentEnds ? null : new Map(), log, since: null, newest: 0, idle: -1, end: Number.MAX_SAFE_INTEGER, parentEnds, open: [], ended: [], ids: null, reread: 0, promptAt: null, running: 0, turnRunning: 0, going: [], stopped: [], state: null, shown: [], work: new Map(), worked: 0, finished: false };
 }
 
 type ShellRow = {
@@ -341,6 +344,7 @@ function scanStep(db: Database, scan: Scan): void {
     // 1.x tables, or a 2.0 store from before child sessions: no subagents to tell of, and no `session_message` rows either
     if (!columns.has("parent_id")) { scan.shells = []; scan.state = NOTHING; scan.finished = true; return; }
     scan.columns = columns;
+    scan.parts = hasTable(db, "session_part");
   }
   if (scan.shells === null) shellStep(db, scan);
   if (scan.told === null) {
@@ -419,7 +423,7 @@ function rereadPage(db: Database, scan: Scan, columns: Set<string>): void {
 }
 
 function workStep(db: Database, scan: Scan): void {
-  for (const { run } of scan.shown.slice(scan.worked, scan.worked + WORK_STEP)) scan.work.set(run.id, childWork(db, run.id));
+  for (const { run } of scan.shown.slice(scan.worked, scan.worked + WORK_STEP)) scan.work.set(run.id, childWork(db, run.id, scan.parts));
   scan.worked += WORK_STEP;
   scan.finished = scan.worked >= scan.shown.length;
 }
@@ -511,7 +515,7 @@ function childDetail(db: Database, sessionId: string, childId: string): ReturnTy
   let left = DETAIL_LIMITS.max_read_bytes - (dispatch?.bytes ?? 0);
   const stepAt = db.query<Taken, [string, number]>(take(`(SELECT json_group_array(json_object('type', json_extract(c.value, '$.type'),
     'text', json_extract(c.value, '$.text'), 'name', json_extract(c.value, '$.name'), 'input', json_extract(c.value, '$.state.input')))
-    FROM json_each(m.data, '$.content') AS c WHERE json_extract(c.value, '$.type') IN ('text', 'tool'))`));
+    FROM ${stepBlocks(hasTable(db, "session_part"))} AS c WHERE json_extract(c.value, '$.type') IN ('text', 'tool'))`));
   const taken: PaneBackgroundAgentDetail["events"][] = [];
   for (const { seq } of steps.slice(0, DETAIL_LIMITS.max_events)) {
     const step = kept(stepAt.get(childId, seq));

@@ -6,7 +6,7 @@ import { join } from "node:path";
 
 import type { HerdrPane } from "../shared/protocol.ts";
 import { handleTasksRequest } from "./tasks-routes.ts";
-import { opencodeSubagentState, OpencodeSubagentStatus, pagedState, readSubagents, RUNNING_LIMIT, SUBAGENT_PAGE } from "./opencode-subagents.ts";
+import { opencodeAgentDetail, opencodeSubagentState, OpencodeSubagentStatus, pagedState, readSubagents, RUNNING_LIMIT, SUBAGENT_PAGE } from "./opencode-subagents.ts";
 import { withStore } from "./opencode.ts";
 
 const root = mkdtempSync(join(tmpdir(), "herdr-opencode-subagents-"));
@@ -94,7 +94,38 @@ function store(parent = "ses_parent", ids: "plain" | "opencode" = "plain") {
   return { path, db, parent, session, add, prompt, step, idle, call, answer, notice };
 }
 
+/** OpenCode 2.4's own move: every assistant step's blocks into `session_part` rows, its `content` left empty. */
+function splitParts(db: Database): void {
+  db.exec(`CREATE TABLE session_part (
+    message_id text NOT NULL, session_id text NOT NULL, ordinal integer NOT NULL, type text NOT NULL, call_id text,
+    time_created integer NOT NULL, time_updated integer NOT NULL, data text NOT NULL, PRIMARY KEY (message_id, ordinal)
+  );
+  CREATE INDEX session_part_session_message_idx ON session_part (session_id, message_id, ordinal);`);
+  for (const row of db.query<{ id: string; session_id: string; time_updated: number; data: string }, []>("SELECT id, session_id, time_updated, data FROM session_message WHERE type = 'assistant'").all()) {
+    const data = JSON.parse(row.data) as { content: Record<string, unknown>[] };
+    data.content.forEach((block, ordinal) => db.query("INSERT INTO session_part VALUES (?, ?, ?, ?, NULL, ?, ?, ?)").run(row.id, row.session_id, ordinal, String(block.type), row.time_updated, row.time_updated, JSON.stringify(block)));
+    db.query("UPDATE session_message SET data = ? WHERE id = ?").run(JSON.stringify({ ...data, content: [] }), row.id);
+  }
+}
+
 describe("an OpenCode session's subagents are its child sessions", () => {
+  it("reads a parent's calls and a child's work from OpenCode 2.4's session_part rows", () => {
+    const s = store();
+    s.prompt(s.parent, NOW - 30 * MIN);
+    s.session("ses_fg", NOW - 20 * MIN);
+    s.call("ses_fg", NOW - 20 * MIN, "running");
+    s.prompt("ses_fg", NOW - 20 * MIN);
+    s.step("ses_fg", NOW - 19 * MIN);
+    s.step("ses_fg", NOW - 18 * MIN, { finish: "stop" });
+    s.idle("ses_fg", NOW - 17 * MIN);
+    splitParts(s.db);
+
+    const state = opencodeSubagentState(s.path, s.parent, true, NOW, null, true, true)!;
+    expect(state.tasks.map((task) => [task.id, task.status, task.tool_calls])).toEqual([["ses_fg", "running", 2]]);
+    const detail = opencodeAgentDetail(s.path, s.parent, "ses_fg");
+    expect("detail" in detail && detail.detail.events.map((event) => event.kind)).toEqual(["text", "tool", "text", "tool"]);
+  });
+
   it("lists running ones first, oldest first, then the newest that ended, with what each did", () => {
     const s = store();
     s.prompt(s.parent, NOW - 30 * MIN);

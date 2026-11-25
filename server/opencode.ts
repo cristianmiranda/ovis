@@ -16,6 +16,9 @@
  * handed out again: a row's `seq` is its event's sequence number, which `Bus.publish` takes as
  * `event_sequence.seq + 1` under a per-session lock and `Bus.reserveSequence` only raises, and the
  * revert commit deletes `session_message` rows without touching `event_sequence` (read from 2.0.24).
+ *
+ * From 2.4 an assistant step keeps its blocks as `session_part` rows, by `ordinal`, and its own
+ * `content` empty: OpenCode reads a step's blocks as those parts followed by `content`.
  */
 
 import { Database } from "bun:sqlite";
@@ -392,7 +395,10 @@ export function sessionView(db: Database, sessionId: string): SessionView | null
     if (row !== null) end = row.seq;
   }
   const historyId = `opencode-${sessionId}${end > (stats.last ?? -1) ? "" : `-r${end.toString(36)}`}`;
-  return { end, historyId, signature: `${historyId}:${stats.count}:${stats.last}:${stats.updated}` };
+  const parts = hasTable(db, "session_part")
+    ? db.query<{ count: number; updated: number | null }, [string]>("SELECT count(*) AS count, max(time_updated) AS updated FROM session_part WHERE session_id = ?").get(sessionId)!
+    : null;
+  return { end, historyId, signature: `${historyId}:${stats.count}:${stats.last}:${stats.updated}${parts === null ? "" : `:${parts.count}:${parts.updated}`}` };
 }
 
 const settings = new Map<string, { updated: number; size: number; model: string | null; variant: string | null; tokens: Row | null; completed: boolean }>();
@@ -404,7 +410,7 @@ const settings = new Map<string, { updated: number; size: number; model: string 
  */
 function sessionMetadata(db: Database, key: string, sessionId: string, end: number, measure: OpencodeRowSize): ConversationMetadata {
   const data = db.query<{ data: string }, [string, string]>("SELECT data FROM session_message WHERE id = ? AND session_id = ?");
-  const sizeOf = db.query<{ size: number }, [string, string]>(ROW_QUERIES[measure].size);
+  const sizeOf = db.query<{ size: number }, [string, string]>(rowQueries(measure, false).size);
   let setting: { model: string | null; variant: string | null } | null = null;
   let usage: Row | null = null;
   let compacted = false;
@@ -453,6 +459,29 @@ function parseData(data: string): Row {
   try { return record(JSON.parse(data)); } catch { return {}; }
 }
 
+export function hasTable(db: Database, name: string): boolean {
+  return db.query<{ name: string }, [string]>("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?").get(name) !== null;
+}
+
+/** The blocks of the `assistant` row `m` as `value` rows, in the order stepContent reads them, for a subquery's FROM. */
+export function stepBlocks(parts: boolean): string {
+  const inline = "SELECT 1 AS o, c.key AS k, c.value AS value FROM json_each(m.data, '$.content') AS c";
+  const split = "SELECT 0 AS o, p.ordinal AS k, p.data AS value FROM session_part AS p WHERE p.session_id = m.session_id AND p.message_id = m.id AND json_valid(p.data)";
+  return `(${parts ? `${split} UNION ALL ` : ""}${inline} ORDER BY o, k)`;
+}
+
+type StepContent = (id: string, type: string, data: Row) => Row;
+
+function stepContent(db: Database, sessionId: string): StepContent {
+  if (!hasTable(db, "session_part")) return (_id, _type, data) => data;
+  const parts = db.query<{ data: string }, [string, string]>("SELECT data FROM session_part WHERE session_id = ? AND message_id = ? ORDER BY ordinal");
+  return (id, type, data) => {
+    if (type !== "assistant") return data;
+    const found = parts.all(sessionId, id).map((row) => parseData(row.data));
+    return found.length === 0 ? data : { ...data, content: [...found, ...(Array.isArray(data.content) ? data.content : [])] };
+  };
+}
+
 /**
  * Every cursor is the `seq` of a
  * page's first row, and a committed `/undo` deletes every row from its message on: a chat whose
@@ -483,18 +512,16 @@ export function supportedRowSize(db: Database): OpencodeRowSize {
   return supported;
 }
 
-const ROW_QUERIES: Record<OpencodeRowSize, { page: string; pageDescending: string; size: string }> = {
-  [OPENCODE_ROW_SIZE.octets]: {
-    page: "SELECT id, seq, type, time_updated AS updated, octet_length(data) AS size FROM session_message WHERE session_id = ? AND seq >= ? AND seq < ? ORDER BY seq",
-    pageDescending: "SELECT id, seq, type, time_updated AS updated, octet_length(data) AS size FROM session_message WHERE session_id = ? AND seq >= ? AND seq < ? ORDER BY seq DESC",
-    size: "SELECT octet_length(data) AS size FROM session_message WHERE id = ? AND session_id = ?",
-  },
-  [OPENCODE_ROW_SIZE.bytes]: {
-    page: "SELECT id, seq, type, time_updated AS updated, length(CAST(data AS BLOB)) AS size FROM session_message WHERE session_id = ? AND seq >= ? AND seq < ? ORDER BY seq",
-    pageDescending: "SELECT id, seq, type, time_updated AS updated, length(CAST(data AS BLOB)) AS size FROM session_message WHERE session_id = ? AND seq >= ? AND seq < ? ORDER BY seq DESC",
-    size: "SELECT length(CAST(data AS BLOB)) AS size FROM session_message WHERE id = ? AND session_id = ?",
-  },
-};
+const measured = (measure: OpencodeRowSize, column: string): string => measure === OPENCODE_ROW_SIZE.octets ? `octet_length(${column})` : `length(CAST(${column} AS BLOB))`;
+
+/** A row's `updated` and `size` count its step's parts too: a part can change while the row keeps both. */
+function rowQueries(measure: OpencodeRowSize, parts: boolean): { page: string; pageDescending: string; size: string } {
+  const ofStep = (value: string) => `(SELECT ${value} FROM session_part AS p WHERE p.session_id = m.session_id AND p.message_id = m.id)`;
+  const updated = parts ? `max(m.time_updated, coalesce(${ofStep("max(p.time_updated)")}, 0))` : "m.time_updated";
+  const size = parts ? `${measured(measure, "m.data")} + coalesce(${ofStep(`sum(${measured(measure, "p.data")})`)}, 0)` : measured(measure, "m.data");
+  const page = `SELECT m.id, m.seq, m.type, ${updated} AS updated, ${size} AS size FROM session_message AS m WHERE m.session_id = ? AND m.seq >= ? AND m.seq < ? ORDER BY m.seq`;
+  return { page, pageDescending: `${page} DESC`, size: `SELECT ${measured(measure, "data")} AS size FROM session_message WHERE id = ? AND session_id = ?` };
+}
 
 export function opencodeConversation(path: string, sessionId: string, page: OpencodePage = {}, rowSize?: OpencodeRowSize): OpencodeAnswer {
   if (!SESSION_ID.test(sessionId)) return { kind: "unavailable", reason: "no_session_id" };
@@ -516,7 +543,9 @@ export function opencodeConversation(path: string, sessionId: string, page: Open
 
       const end = view.end;
       const measure = rowSize ?? supportedRowSize(db);
-      const descending = (from: number, to: number) => db.query<RowMeta, [string, number, number]>(ROW_QUERIES[measure].pageDescending).iterate(sessionId, from, to);
+      const queries = rowQueries(measure, hasTable(db, "session_part"));
+      const content = stepContent(db, sessionId);
+      const descending = (from: number, to: number) => db.query<RowMeta, [string, number, number]>(queries.pageDescending).iterate(sessionId, from, to);
       let start: number;
       let to = end;
       if (page.before !== undefined) {
@@ -537,11 +566,11 @@ export function opencodeConversation(path: string, sessionId: string, page: Open
         const known = newestRecords.get(key) ?? new Map<string, { updated: number; size: number; record: OpencodeRecord | null }>();
         const kept = new Map<string, { updated: number; size: number; record: OpencodeRecord | null }>();
         const data = db.query<{ data: string }, [string, string]>("SELECT data FROM session_message WHERE id = ? AND session_id = ?");
-        for (const row of db.query<RowMeta, [string, number, number]>(ROW_QUERIES[measure].page).iterate(sessionId, start, to)) {
+        for (const row of db.query<RowMeta, [string, number, number]>(queries.page).iterate(sessionId, start, to)) {
           let entry = known.get(row.id);
           if (entry?.updated !== row.updated || entry.size !== row.size) {
             const found = data.get(row.id, sessionId);
-            entry = { updated: row.updated, size: row.size, record: found === null ? null : opencodeRecord(row.id, row.type, parseData(found.data)) };
+            entry = { updated: row.updated, size: row.size, record: found === null ? null : opencodeRecord(row.id, row.type, content(row.id, row.type, parseData(found.data))) };
           }
           kept.set(row.id, entry);
           records.push(entry.record);
@@ -550,7 +579,7 @@ export function opencodeConversation(path: string, sessionId: string, page: Open
       } else {
         for (const row of db.query<{ id: string; type: string; data: string }, [string, number, number]>(
           "SELECT id, type, data FROM session_message WHERE session_id = ? AND seq >= ? AND seq < ? ORDER BY seq",
-        ).iterate(sessionId, start, to)) records.push(opencodeRecord(row.id, row.type, parseData(row.data)));
+        ).iterate(sessionId, start, to)) records.push(opencodeRecord(row.id, row.type, content(row.id, row.type, parseData(row.data))));
       }
       const result = {
         kind: "page" as const,
@@ -583,7 +612,7 @@ function sessionRow(db: Database, sessionId: string, id: string): { type: string
     const hidden = db.query<{ seq: number }, [string, string]>("SELECT seq FROM session_message WHERE session_id = ? AND id = ?").get(sessionId, boundary);
     if (hidden !== null && row.seq >= hidden.seq) return null;
   }
-  return { type: row.type, data: parseData(row.data) };
+  return { type: row.type, data: stepContent(db, sessionId)(id, row.type, parseData(row.data)) };
 }
 
 function readRow<T>(path: string, sessionId: string, id: string, read: (row: { type: string; data: Row }) => T | null): T | null {
@@ -681,7 +710,7 @@ const MAX_V1_ROWS = 10_000;
 const MAX_V1_BYTES = 4 * OPENCODE_WINDOW_BYTES;
 
 function storeFlavor(db: Database): StoreFlavor {
-  const table = (name: string) => db.query<{ name: string }, [string]>("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?").get(name) !== null;
+  const table = (name: string) => hasTable(db, name);
   if (table("session_v2")) return "v2";
   if (table("session") && table("message") && table("part")) return "v1";
   return "unknown";

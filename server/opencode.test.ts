@@ -542,6 +542,36 @@ describe("a page of an OpenCode session", () => {
   });
 });
 
+describe("an OpenCode 2.4 step whose blocks are session_part rows", () => {
+  const split = (s: ReturnType<typeof store>) => s.db.exec(`CREATE TABLE session_part (
+    message_id text NOT NULL, session_id text NOT NULL, ordinal integer NOT NULL, type text NOT NULL, call_id text,
+    time_created integer NOT NULL, time_updated integer NOT NULL, data text NOT NULL, PRIMARY KEY (message_id, ordinal)
+  );
+  CREATE INDEX session_part_session_message_idx ON session_part (session_id, message_id, ordinal);`);
+  const part = (s: ReturnType<typeof store>, id: string, ordinal: number, block: Record<string, unknown>, updated = T0) => s.db
+    .query("INSERT OR REPLACE INTO session_part VALUES (?, ?, ?, ?, NULL, ?, ?, ?)").run(id, s.session, ordinal, String(block.type), T0, updated, JSON.stringify(block));
+
+  it("reads a step's parts ahead of its own content, its tool output by ref, and sees a part change", () => {
+    const s = store();
+    split(s);
+    s.prompt("look");
+    const step = s.answer("after the parts", { content: [{ type: "text", text: "after the parts" }] });
+    part(s, step, 0, { type: "reasoning", text: "thinking" });
+    part(s, step, 1, tool("read", { status: "completed", input: { path: "big.log" }, content: [{ type: "text", text: "y".repeat(6000) }] }));
+    s.idle();
+    const first = page(opencodeConversation(s.path, s.session));
+    const parts = first.turns[1]!.parts;
+    expect(parts.map((found) => found.kind)).toEqual(["thinking", "tool", "text"]);
+    expect(parts[2]).toEqual({ kind: "text", text: "after the parts", phase: "final_answer" });
+    const read = parts[1] as Extract<ConversationPart, { kind: "tool" }>;
+    expect(read.output_ref).toBe(`${step}:1`);
+    expect(opencodeToolOutput(s.path, s.session, read.output_ref!)).toBe("y".repeat(6000));
+
+    part(s, step, 0, { type: "reasoning", text: "thinking again" }, T0 + 1000);
+    expect(page(opencodeConversation(s.path, s.session)).turns[1]!.parts[0]).toEqual({ kind: "thinking", text: "thinking again" });
+  });
+});
+
 describe("where a page starts", () => {
   it("pages a store the same way through the fallback that measures rows without octet_length", () => {
     const s = store();
